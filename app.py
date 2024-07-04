@@ -75,7 +75,7 @@ def create_blogpost():
         ,data['body']])
     conn.commit()
     conn.close()
-    return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}rmd
+    return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
 if __name__ == '__main__':
     app.run(debug=True)
