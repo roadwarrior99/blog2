@@ -1,44 +1,54 @@
-from flask import Flask, request
+from flask import Flask, request, Blueprint, render_template, make_response
 import sqlite3
 import yaml
+from flask_login import login_required, current_user
 import json
 from datetime import datetime
+import hash
+import os
+import flask_login
+import objects
+from dotenv import load_dotenv
+
+load_dotenv()
 app = Flask(__name__)
+app.secret_key = os.environ.get("VACUUMSESSIONKEY")
+app.config['SESSION_TYPE'] = 'filesystem'
+auth = Blueprint('auth', __name__)
+login_manager = flask_login.LoginManager(app)
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4'}
+app.config['UPLOAD_FOLDER'] = '/home/colin/python/blog2/vacuumflask/uploads'
 
-
+@login_manager.user_loader
+def load_user(user_id):
+    user = objects.User(user_id)
+    return user
 @app.route('/')
 def hello_world():  # put application's code here
     return 'Hello World!'
 
-@app.route('/double')
-def double():
-    try:
-        # Get the integer from the query parameter
-        number = int(request.args.get('number'))
-        # Calculate the double of the number
-        result = number * 2
-        return f'The double of {number} is {result}'
-    except (TypeError, ValueError):
-        return 'Please provide a valid integer as the "number" query parameter.'
-
-
-# Define a route with an integer parameter
-@app.route('/square/<int:number>')
-def square(number):
-    # Calculate the square of the number
-    result = number ** 2
-    # Return the result as a string
-    return f'The square of {number} is {result}'
+@app.route('/login', methods=['POST'])
+def login_post():
+    username = request.form.get('username')
+    password = request.form.get('password')
+    if username and password:
+        pwdHashed = hash.hash(password)
+        if pwdHashed == os.environ.get('VACUUMROOTHASH')  \
+            and username == os.environ.get('VACUUMROOTUSER'):
+            my_user = objects.User(username)
+            flask_login.login_user(my_user)
+            return json.dumps({'success': True, "tempapikey": my_user.get_apikey()}), 200, {'ContentType': 'application/json'}
+        else:
+            print ("Password hash didn't match")
+            return json.dumps({'success': False}), 401, {'ContentType': 'application/json'}
+    else:
+        print ("User name and password not sent")
+        return json.dumps({'success': False}), 401, {'ContentType': 'application/json'}
 
 @app.route('/brat/<int:number>')
 def get_brat_no(number):
-    conn = sqlite3.connect('data/vacuumflask.db')
-    sql = "SELECT * FROM post WHERE id = ?"
-    cur = conn.cursor()
-    cur.execute(sql, [number])
-    results = cur.fetchall()
-    conn.close()
     return f'Brat number {number} reporting in for duity'
+
 
 @app.route('/blogpost/<int:number>')
 def blogpost(number):
@@ -59,7 +69,49 @@ def blogpost(number):
     cur.close()
     return json.JSONEncoder().encode(post)
 
+@app.route('/blogpost/<old_id>')
+def oldblogpost(number):
+    conn = sqlite3.connect('data/vacuumflask.db')
+    sql = "SELECT * FROM post WHERE old_id = ?"
+    cur = conn.cursor()
+    #post_id = request.args.get('number', type=int)
+    cur.execute(sql, [old_id])
+    results = cur.fetchall()
+    post = {
+        'id': results[0][0],
+        'subject': results[0][1],
+        'date': results[0][2],
+        'rss_description': results[0][3],
+        'seo_keywords': results[0][4],
+        'body': results[0][5]
+    }
+    cur.close()
+    return json.JSONEncoder().encode(post)
+
+@app.route('/blogpost', methods=['GET'])
+def blogposts():
+    conn = sqlite3.connect('data/vacuumflask.db')
+    sql = "SELECT * FROM post order by id desc"
+    cur = conn.cursor()
+    cur.execute(sql)
+    results = cur.fetchall()
+    posts = []
+    for result in results:
+        post = {
+            'id': result[0],
+            'subject': result[1],
+            'date': result[2],
+            'rss_description': result[3],
+            'seo_keywords': result[4],
+            'body': result[5]
+        }
+        posts.append(post)
+    cur.close()
+    return json.JSONEncoder().encode(posts)
+
+
 @app.route('/blogpost', methods=['POST'])
+@flask_login.login_required
 def create_blogpost():
     required_parms = ['subject', 'date', 'rss_description','seo_keywords', 'body' ]
     data = dict()
@@ -77,5 +129,24 @@ def create_blogpost():
     conn.close()
     return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+@app.route('/upload', methods=['POST'])
+@flask_login.login_required
+def upload_file():
+    if 'file' in request.files:
+        file = request.files['file']
+        if file and allowed_file(file.filename):
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], file.filename))
+            return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
+        else:
+            return (json.dumps({'success': False, 'message': 'file ext is not on approved list.'})
+                    , 200, {'ContentType': 'application/json'})
+    else:
+        return json.dumps({'success': False, 'message': 'file was not provided'}), 200, {'ContentType': 'application/json'}
+
 if __name__ == '__main__':
-    app.run(debug=True)
+
+    login_manager.init_app(app)
+    #app.run(debug=True)
