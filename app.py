@@ -146,6 +146,8 @@ def upload_file():
     else:
         return json.dumps({'success': False, 'message': 'file was not provided'}), 200, {'ContentType': 'application/json'}
 
+
+
 if __name__ == '__main__':
 
     login_manager.init_app(app)
