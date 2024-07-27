@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Create a New Blog Post</h2>
+{% if submitted %}
+    <p>Your post has been submitted!</p>
+{% endif %}
+<form action="/submit" method="POST">
+    <label for="subject">Subject:</label><br>
+    <input type="text" id="subject" name="subject" required><br>
+
+    <label for="date">Date:</label><br>
+    <input type="date" id="date" name="date" required><br>
+
+    <label for="description">Description:</label><br>
+    <textarea id="description" name="description" required></textarea><br>
+
+    <label for="keywords">SEO Keywords:</label><br>
+    <input type="text" id="keywords" name="keywords" required><br>
+
+    <label for="body">Body:</label><br>
+    <textarea id="body" name="body" required></textarea><br>
+
+    <input type="submit" value="Submit">
+</form>
+{% endblock %}

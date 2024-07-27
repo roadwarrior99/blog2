@@ -18,14 +18,12 @@ auth = Blueprint('auth', __name__)
 login_manager = flask_login.LoginManager(app)
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4'}
 app.config['UPLOAD_FOLDER'] = '/home/colin/python/blog2/vacuumflask/uploads'
+db_path = "/home/colin/python/blog2/vacuumflask/data/vacuumflask.db"
 
 @login_manager.user_loader
 def load_user(user_id):
     user = objects.User(user_id)
     return user
-@app.route('/')
-def hello_world():  # put application's code here
-    return 'Hello World!'
 
 @app.route('/login', methods=['POST'])
 def login_post():
@@ -50,9 +48,9 @@ def get_brat_no(number):
     return f'Brat number {number} reporting in for duity'
 
 
-@app.route('/blogpost/<int:number>')
+@app.route('/post/<int:number>')
 def blogpost(number):
-    conn = sqlite3.connect('data/vacuumflask.db')
+    conn = sqlite3.connect(db_path)
     sql = "SELECT * FROM post WHERE id = ?"
     cur = conn.cursor()
     #post_id = request.args.get('number', type=int)
@@ -69,9 +67,9 @@ def blogpost(number):
     cur.close()
     return json.JSONEncoder().encode(post)
 
-@app.route('/blogpost/<old_id>')
+@app.route('/post/<old_id>')
 def oldblogpost(number):
-    conn = sqlite3.connect('data/vacuumflask.db')
+    conn = sqlite3.connect(db_path)
     sql = "SELECT * FROM post WHERE old_id = ?"
     cur = conn.cursor()
     #post_id = request.args.get('number', type=int)
@@ -88,9 +86,9 @@ def oldblogpost(number):
     cur.close()
     return json.JSONEncoder().encode(post)
 
-@app.route('/blogpost', methods=['GET'])
+@app.route('/post', methods=['GET'])
 def blogposts():
-    conn = sqlite3.connect('data/vacuumflask.db')
+    conn = sqlite3.connect(db_path)
     sql = "SELECT * FROM post order by id desc"
     cur = conn.cursor()
     cur.execute(sql)
@@ -107,17 +105,18 @@ def blogposts():
         }
         posts.append(post)
     cur.close()
+    conn.close()
     return json.JSONEncoder().encode(posts)
 
 
-@app.route('/blogpost', methods=['POST'])
+@app.route('/post', methods=['POST'])
 @flask_login.login_required
 def create_blogpost():
     required_parms = ['subject', 'date', 'rss_description','seo_keywords', 'body' ]
     data = dict()
     for parm in required_parms:
         data[parm] = request.form.get(parm)
-    conn = sqlite3.connect('data/vacuumflask.db')
+    conn = sqlite3.connect(db_path)
     sql = """insert into post(subject,date,rss_description,seo_keywords,body)
         values(?,?,?,?,?);"""
     cur = conn.cursor()
@@ -146,7 +145,22 @@ def upload_file():
     else:
         return json.dumps({'success': False, 'message': 'file was not provided'}), 200, {'ContentType': 'application/json'}
 
-
+@app.route('/')
+def index():
+    conn = sqlite3.connect(db_path)
+    sql = """select id, old_id, date,post.rss_description, seo_keywords, body, subject
+            from post 
+            order by date desc;"""
+    cur = conn.cursor()
+    cur.execute(sql)
+    results = cur.fetchall()
+    conn.close()
+    posts = []
+    for post in results:
+        blog = objects.blog_post()
+        blog.load_from_array(post)
+        posts.append(blog.serialize())
+    return render_template('index.html', posts=posts, debug=app.debug)
 
 if __name__ == '__main__':
 
