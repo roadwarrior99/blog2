@@ -1,3 +1,4 @@
+import flask
 from flask import Flask, request, Blueprint, render_template, make_response
 import sqlite3
 import yaml
@@ -25,6 +26,9 @@ def load_user(user_id):
     user = objects.User(user_id)
     return user
 
+@app.route('/login', methods=['GET'])
+def login_get():
+    return flask.render_template('login.html')
 @app.route('/login', methods=['POST'])
 def login_post():
     username = request.form.get('username')
@@ -47,6 +51,12 @@ def login_post():
 def get_brat_no(number):
     return f'Brat number {number} reporting in for duity'
 
+@app.route('/edit/<int:number>')
+def edit_blog_posts(number):
+    blog = objects.blog_post()
+    blog.dbfile = db_path
+    blog.load(number)
+    return render_template("edit.html", blog=blog.serialize())
 
 @app.route('/post/<int:number>')
 def blogpost(number):
@@ -93,10 +103,17 @@ def create_blogpost():
     for parm in required_parms:
         data[parm] = request.form.get(parm)
     post = objects.blog_post()
-    post.load_from_values(id=0, oldid="", date=data['date'], subject=data['subject'],
+    id = 0
+    old_id = ""
+    if request.form.get('id'):
+        id = request.form.get('id')
+    if request.form.get('old_id'):
+        old_id = request.form.get('old_id')
+    post.load_from_values(id=id, oldid=old_id, date=data['date'], subject=data['subject'],
                           rss=data['rss_description'], seo=data['seo_keywords'], body=data['body'])
     post.dbfile = db_path
     post.save()
+    #Make this smarter depending on how we are posting.
     return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
 def allowed_file(filename):
@@ -132,6 +149,10 @@ def index():
         blog.load_from_array(post)
         posts.append(blog.serialize())
     return render_template('index.html', posts=posts, debug=app.debug)
+
+@app.route('/new', methods=['GET'])
+def get_new_post():
+    return render_template('new.html')
 
 if __name__ == '__main__':
 

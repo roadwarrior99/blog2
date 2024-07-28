@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Create a New Blog Post</h2>
+{% if submitted %}
+    <p>Your post has been submitted!</p>
+{% endif %}
+<form action="/login" method="POST">
+    <label for="username">User Name:</label><br>
+    <input type="text" id="username" name="username" required><br>
+
+    <label for="password">Password</label><br>
+    <input type="password" id="password" name="password" required><br>
+
+
+    <input type="submit" value="Submit">
+</form>
+{% endblock %}
