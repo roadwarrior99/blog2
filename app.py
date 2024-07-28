@@ -56,10 +56,10 @@ def blogpost(number):
     return json.JSONEncoder().encode(post.serialize())
 
 @app.route('/post/<old_id>')
-def oldblogpost(number):
+def oldblogpost(old_id):
     post = objects.blog_post()
     post.dbfile = db_path
-    post.load_oldid(old_id=number)
+    post.load_oldid(old_id=old_id)
     return json.JSONEncoder().encode(post.serialize())
 
 @app.route('/post', methods=['GET'])

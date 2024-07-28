@@ -42,7 +42,7 @@ class blog_post:
     seo = ""
     body = ""
     dbfile = ""
-
+    subject = ""
 
     @classmethod
     def load_from_array(self, values_array:[]):
@@ -94,15 +94,15 @@ class blog_post:
             #post_id = request.args.get('number', type=int)
             cur.execute(sql, [id])
             results = cur.fetchall()
-            post = {
-                'id': results[0][0],
-                'subject': results[0][1],
-                'date': results[0][2],
-                'rss_description': results[0][3],
-                'seo_keywords': results[0][4],
-                'body': results[0][5]
-            }
             cur.close()
+            conn.close()
+            self.id = results[0][0]
+            self.subject = results[0][1]
+            self.date = results[0][2]
+            self.rss = results[0][3]
+            self.seo = results[0][4]
+            self.body = results[0][5]
+            return True
         else:
             print("DB file not set")
     def load_oldid(self, old_id):
@@ -113,15 +113,14 @@ class blog_post:
             #post_id = request.args.get('number', type=int)
             cur.execute(sql, [old_id])
             results = cur.fetchall()
-            post = {
-                'id': results[0][0],
-                'subject': results[0][1],
-                'date': results[0][2],
-                'rss_description': results[0][3],
-                'seo_keywords': results[0][4],
-                'body': results[0][5]
-            }
             cur.close()
+            conn.close()
+            self.id = results[0][0]
+            self.subject = results[0][1]
+            self.date = results[0][2]
+            self.rss = results[0][3]
+            self.seo = results[0][4]
+            self.body = results[0][5]
         else:
             print("DB file not set")
     def serialize(self):
