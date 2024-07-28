@@ -50,41 +50,17 @@ def get_brat_no(number):
 
 @app.route('/post/<int:number>')
 def blogpost(number):
-    conn = sqlite3.connect(db_path)
-    sql = "SELECT * FROM post WHERE id = ?"
-    cur = conn.cursor()
-    #post_id = request.args.get('number', type=int)
-    cur.execute(sql, [number])
-    results = cur.fetchall()
-    post = {
-        'id': results[0][0],
-        'subject': results[0][1],
-        'date': results[0][2],
-        'rss_description': results[0][3],
-        'seo_keywords': results[0][4],
-        'body': results[0][5]
-    }
-    cur.close()
-    return json.JSONEncoder().encode(post)
+    post = objects.blog_post()
+    post.dbfile = db_path
+    post.load(number)
+    return json.JSONEncoder().encode(post.serialize())
 
 @app.route('/post/<old_id>')
 def oldblogpost(number):
-    conn = sqlite3.connect(db_path)
-    sql = "SELECT * FROM post WHERE old_id = ?"
-    cur = conn.cursor()
-    #post_id = request.args.get('number', type=int)
-    cur.execute(sql, [old_id])
-    results = cur.fetchall()
-    post = {
-        'id': results[0][0],
-        'subject': results[0][1],
-        'date': results[0][2],
-        'rss_description': results[0][3],
-        'seo_keywords': results[0][4],
-        'body': results[0][5]
-    }
-    cur.close()
-    return json.JSONEncoder().encode(post)
+    post = objects.blog_post()
+    post.dbfile = db_path
+    post.load_oldid(old_id=number)
+    return json.JSONEncoder().encode(post.serialize())
 
 @app.route('/post', methods=['GET'])
 def blogposts():
@@ -116,16 +92,11 @@ def create_blogpost():
     data = dict()
     for parm in required_parms:
         data[parm] = request.form.get(parm)
-    conn = sqlite3.connect(db_path)
-    sql = """insert into post(subject,date,rss_description,seo_keywords,body)
-        values(?,?,?,?,?);"""
-    cur = conn.cursor()
-    post_date_obj = datetime.strptime(data['date'], "%m/%d/%Y")
-    cur.execute(sql, [data['subject'], int(post_date_obj.timestamp())
-        ,data['rss_description'], data['seo_keywords']
-        ,data['body']])
-    conn.commit()
-    conn.close()
+    post = objects.blog_post()
+    post.load_from_values(id=0, oldid="", date=data['date'], subject=data['subject'],
+                          rss=data['rss_description'], seo=data['seo_keywords'], body=data['body'])
+    post.dbfile = db_path
+    post.save()
     return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
 def allowed_file(filename):

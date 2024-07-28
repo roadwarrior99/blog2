@@ -68,12 +68,12 @@ class blog_post:
         if os.path.exists(self.dbfile):
             conn = sqlite3.connect(self.dbfile)
             cur = conn.cursor()
-            if self.id > 0:
+            if self.id == 0:
                 sql = """insert into post(subject,date,rss_description,seo_keywords,body)
                     values(?,?,?,?,?);"""
 
-                post_date_obj = datetime.strptime(self.date, "%m/%d/%Y")
-                cur.execute(sql, [self.subject, int(post_date_obj.timestamp())
+
+                cur.execute(sql, [self.subject, self.date
                     ,self.rss, self.seo
                     ,self.body])
             else:
@@ -81,8 +81,10 @@ class blog_post:
                 cur.execute(sql,[self.subject, self.date, self.rss, self.seo, self.body, self.id])
             conn.commit()
             conn.close()
+            return True
         else:
             print("DB file not set")
+            return False
 
     def load(self, id):
         if os.path.exists(self.dbfile):

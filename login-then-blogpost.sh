@@ -10,7 +10,7 @@ curl -X POST http://localhost:5000/login \
      -d "password=$password" \
      -c cookie.txt
 
-curl -X POST http://localhost:5000/blogpost \
+curl -X POST http://localhost:5000/post \
      -H "Content-Type: application/x-www-form-urlencoded" \
      -d "subject=Sample Subject" \
      -d "date=07/04/2024" \
