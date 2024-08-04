@@ -5,3 +5,5 @@ data/vacuumflask.db
 uploads
 beanstalk
 beanstalk/.
+.env
+*.zip
