@@ -2,3 +2,6 @@
 .idea/*
 __pycache__/*
 data/vacuumflask.db
+uploads
+beanstalk
+beanstalk/.
