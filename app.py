@@ -9,9 +9,9 @@ import hash
 import os
 import flask_login
 import objects
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
-load_dotenv()
+#load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("VACUUMSESSIONKEY")
 app.config['SESSION_TYPE'] = 'filesystem'
@@ -19,7 +19,7 @@ auth = Blueprint('auth', __name__)
 login_manager = flask_login.LoginManager(app)
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4'}
 app.config['UPLOAD_FOLDER'] = '/home/colin/python/blog2/vacuumflask/uploads'
-db_path = "/home/colin/python/blog2/vacuumflask/data/vacuumflask.db"
+db_path = "data/vacuumflask.db"
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -153,6 +153,7 @@ def index():
 @app.route('/new', methods=['GET'])
 def get_new_post():
     return render_template('new.html')
+
 
 if __name__ == '__main__':
 

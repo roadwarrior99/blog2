@@ -1,0 +1,5 @@
+flask
+waitress
+pyyaml
+Flask-Login
+pycryptodome
