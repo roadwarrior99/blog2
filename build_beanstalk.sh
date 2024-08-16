@@ -15,3 +15,6 @@ cd "$destination"
 zip -r "../$zipFileName" "."
 cd ../
 rm -r "$destination"
+scp "$zipFileName" project:blog2
+scp docker-build-run.sh project:blog2
+ssh project
