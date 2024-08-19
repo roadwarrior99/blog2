@@ -17,9 +17,9 @@
           <h3>These are your uploaded files:</h3>
           <p>Click on the filename to view the object.</p>
           <ul>
-            {% for ETag, obj in contents.items() %}
+            {% for Key, obj in contents.items() %}
               <li>
-                <a href="{{ ETag }}"> {{ obj.Key }} </a>
+                <a href="{{ url_for("public_content_content", Key=Key) }}"> {{ obj.Key }} </a>
               </li>
             {% endfor %}
           </ul>

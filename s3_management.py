@@ -9,8 +9,11 @@ def list_files():
     Function to list files in a given S3 bucket
     """
     contents = dict()
+    count = 0
     for item in s3.list_objects(Bucket=bucket_name)['Contents']:
-        contents[item["ETag"]] = item
+
+        contents[count] = item
+        count+=1
     return contents
 
 def download_file(file_name):

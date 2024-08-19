@@ -18,40 +18,35 @@
         }
     </style>
     <div class="content">
-    <h3>{Key}</h3>
 
     <h1>File Information</h1>
+        <p>
+            <a href="/public_content">Back</a>
+        </p>
+        <div class="file-info">
+            <form action="">
+            <p><strong>Key:</strong>
+                <form action="public_content/content/move/{{ item['Key'] }}" method="post">
+                    <input type="text" value="{{ item['Key'] }}"/>
+                    <button type="submit">rename or move</button>
+                </form>
+            <a href="public_content/content/remove/{{ item['Key'] }}">Remove</a>
+            </p>
+            </form>
+            <p><strong>Last Modified:</strong> {{ item['LastModified'] }}</p>
+            <p><strong>Size:</strong> {{ item['Size'] }} bytes</p>
+            <p><strong>Storage Class:</strong> {{ item['StorageClass'] }}</p>
 
-    <div class="file-info">
-        <p><strong>Key:</strong> {{ item['Key'] }}</p>
-        <p><strong>Last Modified:</strong> {{ item['LastModified'] }}</p>
-        <p><strong>ETag:</strong> {{ item['ETag'] }}</p>
-        <p><strong>Size:</strong> {{ item['Size'] }} bytes</p>
-        <p><strong>Storage Class:</strong> {{ item['StorageClass'] }}</p>
-        <p><strong>Owner:</strong> {{ item['Owner']['DisplayName'] }} (ID: {{ item['Owner']['ID'] }})</p>
-
-        {% if item['Key'].endswith(('.jpg', '.jpeg', '.png', '.gif')) %}
-            <img src="{{ url_for('get_file', key=item['Key']) }}" alt="Image">
-        {% elif item['Key'].endswith('.mp4') %}
-            <video controls>
-                <source src="{{ url_for('get_file', key=item['Key']) }}" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-        {% else %}
-            <p>This file cannot be displayed directly.</p>
-        {% endif %}
-    </div>
-
-    <div class="actions">
-        <form action="{{ url_for('edit_file', key=item['Key']) }}" method="get">
-            <button type="submit">Edit</button>
-        </form>
-        <form action="{{ url_for('delete_file', key=item['Key']) }}" method="post">
-            <button type="submit" onclick="return confirm('Are you sure you want to delete this file?');">Delete</button>
-        </form>
-        <form action="{{ url_for('download_file', key=item['Key']) }}" method="get">
-            <button type="submit">Download</button>
-        </form>
-    </div>
+            {% if item['Key'].endswith(('.jpg', '.jpeg', '.png', '.gif')) %}
+                <img src="https://pub.cmh.sh/{{  item['Key']|safe }}" alt="Image">
+            {% elif item['Key'].endswith('.mp4') %}
+                <video controls>
+                    <source src="https://pub.cmh.sh/{{ item['Key']|safe }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            {% else %}
+                <p>This file cannot be displayed directly.</p>
+            {% endif %}
+        </div>
     </div>
 {% endblock %}

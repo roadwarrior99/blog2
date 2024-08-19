@@ -152,12 +152,12 @@ def public_content():
     s3_content = list_files()
     return render_template("public_content.html", contents=s3_content)
 
-@app.route("/public_content/content/<ETag>", methods=['GET'])
+@app.route("/public_content/content/<int:Key>", methods=['GET'])
 @flask_login.login_required
-def public_content_content(ETag):
+def public_content_content(Key):
     s3_content = list_files()
-    if ETag in s3_content.keys():
-        return render_template("public_content_item.html", item=s3_content[ETag])
+    if Key in s3_content.keys():
+        return render_template("public_content_item.html", item=s3_content[Key])
     else:
         return render_template("public_content.html", contents=s3_content, filenotfound=True)
 @app.route('/')
