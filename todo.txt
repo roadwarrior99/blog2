@@ -1,0 +1,8 @@
+Missing Features:
+- Ban Hammer for login brute force
+- Image resize for mobile uploads
+- s3 meme, image mangement, and cdn
+- ability to edit existing posts
+? ots
+? url shortener service
+

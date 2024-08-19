@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="content">
+          {%  if filenotfound is defined %}
+              <h3> FILE NOT FOUND</h3>
+          {% endif %}
+        <h3>Public CDN Content</h3>
+        <div>
+          <h3>Upload your file here:</h3>
+          <form method="POST" action="/public_content" enctype=multipart/form-data>
+            <input type=file name=file>
+            <input type=submit value=Upload>
+          </form>
+        </div>
+        <div>
+          <h3>These are your uploaded files:</h3>
+          <p>Click on the filename to view the object.</p>
+          <ul>
+            {% for ETag, obj in contents.items() %}
+              <li>
+                <a href="{{ ETag }}"> {{ obj.Key }} </a>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+{% endblock %}

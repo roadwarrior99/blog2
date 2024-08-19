@@ -9,6 +9,10 @@ import hash
 import os
 import flask_login
 import objects
+from flask_ipban import IpBan
+import s3_management
+from s3_management import list_files
+
 #from dotenv import load_dotenv
 
 #load_dotenv()
@@ -20,6 +24,9 @@ login_manager = flask_login.LoginManager(app)
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4'}
 app.config['UPLOAD_FOLDER'] = '/home/colin/python/blog2/vacuumflask/uploads'
 db_path = "data/vacuumflask.db"
+ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
+good_list = "/home/colin/python/blog2/vacuumflask/data/goodlist.txt"
+s3_content = list_files()
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -42,6 +49,7 @@ def login_post():
             return json.dumps({'success': True, "tempapikey": my_user.get_apikey()}), 200, {'ContentType': 'application/json'}
         else:
             print ("Password hash didn't match")
+            ip_ban.add()
             return json.dumps({'success': False}), 401, {'ContentType': 'application/json'}
     else:
         print ("User name and password not sent")
@@ -119,6 +127,10 @@ def create_blogpost():
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+###
+### This is for on server file uploads and won't freaking work from a docker container unless the
+### destionation path is a write directory from outside of the container
+###
 @app.route('/upload', methods=['POST'])
 @flask_login.login_required
 def upload_file():
@@ -133,12 +145,27 @@ def upload_file():
     else:
         return json.dumps({'success': False, 'message': 'file was not provided'}), 200, {'ContentType': 'application/json'}
 
+@app.route('/public_content', methods=['GET'])
+@flask_login.login_required
+def public_content():
+    #if s3_content and len(s3_content) == 0:
+    s3_content = list_files()
+    return render_template("public_content.html", contents=s3_content)
+
+@app.route("/public_content/content/<ETag>", methods=['GET'])
+@flask_login.login_required
+def public_content_content(ETag):
+    s3_content = list_files()
+    if ETag in s3_content.keys():
+        return render_template("public_content_item.html", item=s3_content[ETag])
+    else:
+        return render_template("public_content.html", contents=s3_content, filenotfound=True)
 @app.route('/')
 def index():
     conn = sqlite3.connect(db_path)
     sql = """select id, old_id, date,post.rss_description, seo_keywords, body, subject
             from post 
-            order by date desc;"""
+            order by id desc;"""
     cur = conn.cursor()
     cur.execute(sql)
     results = cur.fetchall()
@@ -154,8 +181,15 @@ def index():
 def get_new_post():
     return render_template('new.html')
 
+def read_and_apply_good_list(goodlist):
+    if os.path.exists(good_list):
+        with open(good_list, 'r') as f:
+            for line in f:
+                ip_ban.ip_whitelist_add(line)
 
 if __name__ == '__main__':
 
     login_manager.init_app(app)
+    ip_ban.init_app(app)
+    read_and_apply_good_list(good_list)
     #app.run(debug=True)

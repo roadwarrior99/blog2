@@ -3,3 +3,4 @@ waitress
 pyyaml
 Flask-Login
 pycryptodome
+flask-ipban
