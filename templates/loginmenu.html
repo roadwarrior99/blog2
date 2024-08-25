@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<ul>
+    <li><a href="{{ url_for("get_new_post") }}">New Post</a>"</li>
+    <li><a href="{{ url_for("blogposts") }}">Posts</a></li>
+    <li><a href="{{ url_for("public_content") }}">Manage Public content</a></li>
+</ul>
+{% endblock %}

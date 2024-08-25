@@ -1,3 +1,5 @@
+from crypt import methods
+
 import flask
 from flask import Flask, request, Blueprint, render_template, make_response
 import sqlite3
@@ -46,7 +48,7 @@ def login_post():
             and username == os.environ.get('VACUUMROOTUSER'):
             my_user = objects.User(username)
             flask_login.login_user(my_user)
-            return json.dumps({'success': True, "tempapikey": my_user.get_apikey()}), 200, {'ContentType': 'application/json'}
+            return render_template("loginmenu.html")
         else:
             print ("Password hash didn't match")
             ip_ban.add()
@@ -59,12 +61,18 @@ def login_post():
 def get_brat_no(number):
     return f'Brat number {number} reporting in for duity'
 
-@app.route('/edit/<int:number>')
+@app.route('/edit/<int:number>', methods=['GET'])
+@flask_login.login_required
 def edit_blog_posts(number):
     blog = objects.blog_post()
     blog.dbfile = db_path
     blog.load(number)
     return render_template("edit.html", blog=blog.serialize())
+
+@app.route('/edit/<int:number>', methods=['POST'])
+@flask_login.login_required
+def edit_blog_posts_save(number):
+    create_blogpost(number)
 
 @app.route('/post/<int:number>')
 def blogpost(number):
@@ -72,6 +80,8 @@ def blogpost(number):
     post.dbfile = db_path
     post.load(number)
     return json.JSONEncoder().encode(post.serialize())
+
+
 
 @app.route('/post/<old_id>')
 def oldblogpost(old_id):
@@ -100,18 +110,18 @@ def blogposts():
         posts.append(post)
     cur.close()
     conn.close()
-    return json.JSONEncoder().encode(posts)
+    return render_template("postlist.html", posts=posts)
 
 
 @app.route('/post', methods=['POST'])
 @flask_login.login_required
-def create_blogpost():
+def create_blogpost(number=0):
     required_parms = ['subject', 'date', 'rss_description','seo_keywords', 'body' ]
     data = dict()
     for parm in required_parms:
         data[parm] = request.form.get(parm)
     post = objects.blog_post()
-    id = 0
+    id = number
     old_id = ""
     if request.form.get('id'):
         id = request.form.get('id')
@@ -122,7 +132,7 @@ def create_blogpost():
     post.dbfile = db_path
     post.save()
     #Make this smarter depending on how we are posting.
-    return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
+    return render_template("save.html")
 
 def allowed_file(filename):
     return '.' in filename and \
