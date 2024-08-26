@@ -1,23 +1,13 @@
 Missing Features:
-X- Main blog feed in random freaking order
-X- Ban Hammer for login brute force
-- Image resize for mobile uploads
-- s3 meme, image mangement, and cdn
-X->ability to edit existing posts
-- Ability to view an individual post by specific url.
-? ots
 ? url shortener service
+- Formatting
 - Better system for ordering blog posts on main screen
 - Test ban hammer from remote ip
 
 Notes-
-Find public ip adddress from mac / linux:
-dig +short myip.opendns.com @resolver1.opendns.com
-
 new iam policy: vacuuum_flask_s3_access
 new iam role: vacuuum_flask_access
 user: vacuumflask
 
 move raphael captions above browers window so it doesn't get cut off.
-
 
