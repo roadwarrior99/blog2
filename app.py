@@ -12,9 +12,10 @@ import os
 import flask_login
 import objects
 from flask_ipban import IpBan
-import s3_management
 from s3_management import list_files
-
+from s3_management import mv_file
+from s3_management import s3_upload_file
+from s3_management import s3_remove_file
 #from dotenv import load_dotenv
 
 #load_dotenv()
@@ -72,7 +73,7 @@ def edit_blog_posts(number):
 @app.route('/edit/<int:number>', methods=['POST'])
 @flask_login.login_required
 def edit_blog_posts_save(number):
-    create_blogpost(number)
+    return create_blogpost(number)
 
 @app.route('/post/<int:number>')
 def blogpost(number):
@@ -81,7 +82,18 @@ def blogpost(number):
     post.load(number)
     return json.JSONEncoder().encode(post.serialize())
 
+@app.route("/menu")
+@flask_login.login_required
+def show_menu():
+    return render_template("loginmenu.html")
 
+@app.route("/remove/<int:postid>",methods=['GET'])
+@flask_login.login_required
+def remove_blog_post(postid):
+    post = objects.blog_post()
+    post.dbfile = db_path
+    post.remove(postid)
+    return render_template("loginmenu.html")
 
 @app.route('/post/<old_id>')
 def oldblogpost(old_id):
@@ -155,6 +167,17 @@ def upload_file():
     else:
         return json.dumps({'success': False, 'message': 'file was not provided'}), 200, {'ContentType': 'application/json'}
 
+@app.route('/public_content', methods=['POST'])
+@flask_login.login_required
+def public_content_file_upload():
+    if 'file' in request.files:
+        file = request.files['file']
+        if file and allowed_file(file.filename):
+            s3_upload_file(file,file.filename)
+            return render_template("save.html")
+        else:
+            return render_template("file_error.html")
+
 @app.route('/public_content', methods=['GET'])
 @flask_login.login_required
 def public_content():
@@ -162,7 +185,7 @@ def public_content():
     s3_content = list_files()
     return render_template("public_content.html", contents=s3_content)
 
-@app.route("/public_content/content/<int:Key>", methods=['GET'])
+@app.route("/public_content/content/<string:Key>", methods=['GET'])
 @flask_login.login_required
 def public_content_content(Key):
     s3_content = list_files()
@@ -170,6 +193,28 @@ def public_content_content(Key):
         return render_template("public_content_item.html", item=s3_content[Key])
     else:
         return render_template("public_content.html", contents=s3_content, filenotfound=True)
+
+@app.route('/public_content/content/move/<string:Key>', methods=['POST'])
+@flask_login.login_required
+def public_content_move(Key):
+    #Need to know the old file name and the new file name.
+    old_file_name = request.form.get("old_file")
+    new_file_name = request.form.get("new_file")
+    mv_file(old_file_name, new_file_name)
+    s3_content = list_files()
+    return render_template("public_content_item.html", item=s3_content[new_file_name])
+
+@app.route('/public_content/content/remove/<string:Key>', methods=["GET"])
+@flask_login.login_required
+def public_content_remove(Key):
+    s3_content = list_files()
+    if Key in s3_content:
+        s3_remove_file(Key)
+        s3_content = list_files()
+        return render_template("save.html")
+    else:
+        return render_template("file_error.html")
+
 @app.route('/')
 def index():
     conn = sqlite3.connect(db_path)

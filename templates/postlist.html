@@ -1,11 +1,13 @@
 {% extends 'base.html' %}
 
 {% block content %}
+    <p><a href="{{ url_for("show_menu") }}">Main Menu</a></p>
     {%for blog in posts%}
 
     <div class="postbox" id="post{{blog['id']}}" data-keywords="{{blog['seo']}}">
-        <a href="/post/{{blog['id']}}"><span class="posttitle">{{blog['subject']}}</span></a><br/>
-        <a href="{{ url_for("edit_blog_posts",number=blog['id']) }}">Edit</a><br/>
+        <a href="/post/{{blog['id']}}"><span class="posttitle">{{blog['subject']}}</span></a>
+        <a href="{{ url_for("edit_blog_posts",number=blog['id']) }}">Edit</a>
+        <a href="{{ url_for("remove_blog_post",postid=blog['id']) }}">Remove</a>
 
     </div>
 {%endfor%}

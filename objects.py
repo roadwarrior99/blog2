@@ -85,6 +85,19 @@ class blog_post:
         else:
             print("DB file not set")
             return False
+    def remove(self, id):
+        if os.path.exists(self.dbfile):
+            if id:
+                conn = sqlite3.connect(self.dbfile)
+                cur = conn.cursor()
+                sql = "delete from post where id=?"
+                cur.execute(sql, [id])
+                conn.commit()
+                conn.close()
+            else:
+                print("ID not set.")
+        else:
+            print("DB file not set")
 
     def load(self, id):
         if os.path.exists(self.dbfile):
