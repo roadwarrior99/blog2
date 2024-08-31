@@ -28,7 +28,7 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4'}
 app.config['UPLOAD_FOLDER'] = '/home/colin/python/blog2/vacuumflask/uploads'
 db_path = "data/vacuumflask.db"
 ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
-good_list = "/home/colin/python/blog2/vacuumflask/data/goodlist.txt"
+good_list = os.environ.get("IP_GOOD_LIST")
 s3_content = list_files()
 
 @login_manager.user_loader
@@ -80,7 +80,7 @@ def blogpost(number):
     post = objects.blog_post()
     post.dbfile = db_path
     post.load(number)
-    return json.JSONEncoder().encode(post.serialize())
+    return render_template("post.html",blog=post)
 
 @app.route("/menu")
 @flask_login.login_required
@@ -100,7 +100,7 @@ def oldblogpost(old_id):
     post = objects.blog_post()
     post.dbfile = db_path
     post.load_oldid(old_id=old_id)
-    return json.JSONEncoder().encode(post.serialize())
+    return render_template("post.html", blog=post)
 
 @app.route('/post', methods=['GET'])
 def blogposts():
@@ -220,7 +220,7 @@ def index():
     conn = sqlite3.connect(db_path)
     sql = """select id, old_id, date,post.rss_description, seo_keywords, body, subject
             from post 
-            order by id desc;"""
+            order by id asc;"""
     cur = conn.cursor()
     cur.execute(sql)
     results = cur.fetchall()
@@ -233,6 +233,7 @@ def index():
     return render_template('index.html', posts=posts, debug=app.debug)
 
 @app.route('/new', methods=['GET'])
+@flask_login.login_required
 def get_new_post():
     return render_template('new.html')
 

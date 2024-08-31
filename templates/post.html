@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<p class="post">
+    <div class="postblock" data-keywords="{{ blog['rss'] }}">
+        <a id="{{ blog['id'] }}">
+            <span class="posttitle">{{ blog['subject'] }}</span>
+        </a><br/>
+        {{ blog['body'] | safe }}
+    </div>
+</p>
+{% endblock %}

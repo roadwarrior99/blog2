@@ -10,7 +10,7 @@ def read_old_blog(main_yaml, destination_db):
             ymlobj = yaml.safe_load_all(ymlf)
             conn = sqlite3.connect(destination_db)
             cur = conn.cursor()
-            for blog_obj in ymlobj:
+            for blog_obj in reversed(ymlobj):
                 sql = """insert into post(subject,date,rss_description,seo_keywords,
                     body, old_id)
                     values(?,?,?,?,?,?);"""
