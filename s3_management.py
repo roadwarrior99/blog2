@@ -4,7 +4,7 @@ from werkzeug.utils import secure_filename
 from Crypto.SelfTest.Cipher.test_OFB import file_name
 
 bucket_name = os.environ.get("CDN_BUCKET_NAME")
-session = boto3.Session(profile_name='vacuum')
+session = boto3.Session()#profile_name='vacuum'
 s3 = session.client('s3')
 
 def list_files():

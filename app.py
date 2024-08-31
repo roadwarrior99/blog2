@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 import json
 from datetime import datetime
 import hash
+import logging
 import os
 import flask_login
 import objects
@@ -28,8 +29,9 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4'}
 app.config['UPLOAD_FOLDER'] = '/home/colin/python/blog2/vacuumflask/uploads'
 db_path = "data/vacuumflask.db"
 ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
-good_list = os.environ.get("IP_GOOD_LIST")
-s3_content = list_files()
+good_list = "data/goodlist.txt"
+#s3_content = list_files()
+logger = logging.getLogger(__name__)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -51,12 +53,12 @@ def login_post():
             flask_login.login_user(my_user)
             return render_template("loginmenu.html")
         else:
-            print ("Password hash didn't match")
+            logger.warning("User or Password hash didn't match")
             ip_ban.add()
-            return json.dumps({'success': False}), 401, {'ContentType': 'application/json'}
+            return render_template("authissue.html", code=401)
     else:
-        print ("User name and password not sent")
-        return json.dumps({'success': False}), 401, {'ContentType': 'application/json'}
+        logger.warning ("User name and password not sent")
+        return render_template("authissue.html", code=402)
 
 @app.route('/brat/<int:number>')
 def get_brat_no(number):
