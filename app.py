@@ -190,6 +190,20 @@ def public_content():
     s3_content = list_files()
     return render_template("public_content.html", contents=s3_content)
 
+@app.route('/public_content/gallery', methods=['GET'])
+@flask_login.login_required
+def public_content_gallery():
+    s3_content = list_files()
+    notvideofiles = dict()
+    for key,obj in s3_content.items():
+        file_typ = key.split('.')[-1]
+        if file_typ != "mp4":
+            notvideofiles[key] = True
+        else:
+            notvideofiles[key] = False
+
+    return render_template("public_gallery.html", contents=s3_content, filetypes=notvideofiles)
+
 @app.route("/public_content/content/<string:Key>", methods=['GET'])
 @flask_login.login_required
 def public_content_content(Key):

@@ -5,7 +5,7 @@ from Crypto.SelfTest.Cipher.test_OFB import file_name
 
 bucket_name = os.environ.get("CDN_BUCKET_NAME")
 if os.environ.get("AWS_PROFILE_NAME"):
-    session = boto3.Session(os.environ.get("AWS_PROFILE_NAME"))#profile_name='vacuum'
+    session = boto3.Session(profile_name=os.environ.get("AWS_PROFILE_NAME"))#profile_name='vacuum'
 else:
     session = boto3.Session()
 s3 = session.client('s3')

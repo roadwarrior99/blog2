@@ -65,3 +65,13 @@ footer {
 .adminmenu {
      list-style-type: none;
 }
+.gallery img {
+    width: 150px;
+}
+.gallery video {
+    width:150px;
+}
+
+.videoblock {
+    display: inline-block;
+}

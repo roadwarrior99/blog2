@@ -6,7 +6,7 @@
               <h3> FILE NOT FOUND</h3>
           {% endif %}
         <h3>Public CDN Content</h3>
-        <a href="{{ url_for("public_content_gallery") }}">Gallery</a><br/>
+        <a href="{{ url_for("public_content") }}">List</a><br/>
         <div>
           <h3>Upload your file here:</h3>
           <form method="POST" action="/public_content" enctype=multipart/form-data>
@@ -14,15 +14,25 @@
             <input type=submit value=Upload>
           </form>
         </div>
-        <div>
+        <div class="gallery">
           <h3>These are your uploaded files:</h3>
           <p>Click on the filename to view the object.</p>
-          <ul>
+
             {% for Key, obj in contents.items() %}
-              <li>
-                <a href="{{ url_for("public_content_content", Key=Key) }}"> {{ obj.Key }} </a>
-              </li>
+                <a href="{{ url_for("public_content_content", Key=Key) }}">
+                    {% if (filetypes[Key]) %}
+                        <img src="https://pub.cmh.sh/{{ Key }}" alt="{{ Key }}"/>
+                    {% else %}
+                        <span class="videoblock">Edit
+                        <video controls>
+                            <source src="https://pub.cmh.sh/{{ Key }}" type="video/mp4" />
+                        </video><br/>
+                        </span>
+                    {% endif %}
+                </a>
+
+
             {% endfor %}
-          </ul>
+
         </div>
 {% endblock %}
