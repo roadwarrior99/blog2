@@ -47,8 +47,8 @@ def login_post():
     password = request.form.get('password')
     if username and password:
         pwdHashed = hash.hash(password)
-        logger.warning("User: {0} with password:'{1}'".format(username, pwdHashed))
-        logger.warning("root user: {0} with hash:{1}".format(os.environ.get('VACUUMROOTUSER'), os.environ.get('VACUUMROOTHASH')))
+        #logger.warning("User: {0} with password:'{1}'".format(username, pwdHashed))
+        #logger.warning("root user: {0} with hash:{1}".format(os.environ.get('VACUUMROOTUSER'), os.environ.get('VACUUMROOTHASH')))
         if pwdHashed == os.environ.get('VACUUMROOTHASH')  \
             and username == os.environ.get('VACUUMROOTUSER'):
             my_user = objects.User(username)
@@ -57,6 +57,7 @@ def login_post():
         else:
             logger.warning("User or Password hash didn't match")
             ip_ban.add()
+            logger.warning("Failed login with headers: {0}".format(request.headers))
             return render_template("authissue.html", code=401)
     else:
         logger.warning ("User name and password not sent")
@@ -224,7 +225,7 @@ def index():
     conn = sqlite3.connect(db_path)
     sql = """select id, old_id, date,post.rss_description, seo_keywords, body, subject
             from post 
-            order by id asc;"""
+            order by id desc;"""
     cur = conn.cursor()
     cur.execute(sql)
     results = cur.fetchall()

@@ -17,4 +17,4 @@ zip -r "../$zipFileName" "."
 cd ../
 rm -r "$destination"
 scp "$zipFileName" project:blog2
-
+ssh project "cd blog2; sudo sh deploy.sh $zipFileName > deploy.log"

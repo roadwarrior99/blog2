@@ -1,8 +1,9 @@
-Missing Features:
-? url shortener service
-- Formatting
-- Better system for ordering blog posts on main screen
-- Test ban hammer from remote ip
+Bugs:
+
+FIX response design for mobile for main blog page
+
+New Features:
+RSS FEED
 
 Notes-
 new iam policy: vacuuum_flask_s3_access
@@ -11,3 +12,6 @@ user: vacuumflask
 
 move raphael captions above browers window so it doesn't get cut off.
 
+
+docker images | grep -w vacuumflask | awk '{print $3}'
+docker ps | grep -w "06606dcf6fd9" | awk '{print $1}'

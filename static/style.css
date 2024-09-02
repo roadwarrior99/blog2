@@ -62,3 +62,6 @@ footer {
     width: 100%;
     bottom: 0;
 }
+.adminmenu {
+     list-style-type: none;
+}

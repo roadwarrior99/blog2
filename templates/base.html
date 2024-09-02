@@ -10,7 +10,7 @@
     <header>
         <h1>while(motivation <= 0)</h1>
     <nav>
-        <ul>
+        <ul class="adminmenu">
             {% if current_user.is_authenticated %}
                 <li><a href="{{ url_for('show_menu') }}">Menu</a></li>
             {% else %}
