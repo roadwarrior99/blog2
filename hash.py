@@ -1,8 +1,8 @@
 from Crypto.Hash import SHA512 #pip3 install pycryptodome
 import sys
 import os
-#from dotenv import load_dotenv
-#load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 def hash(input_str):
     h = SHA512.new(truncate="256")
     b = bytes(input_str + os.environ.get('VACUUMSALT'), 'utf-8')

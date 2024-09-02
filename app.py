@@ -17,9 +17,9 @@ from s3_management import list_files
 from s3_management import mv_file
 from s3_management import s3_upload_file
 from s3_management import s3_remove_file
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 
-#load_dotenv()
+load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("VACUUMSESSIONKEY")
 app.config['SESSION_TYPE'] = 'filesystem'
@@ -47,6 +47,8 @@ def login_post():
     password = request.form.get('password')
     if username and password:
         pwdHashed = hash.hash(password)
+        logger.warning("User: {0} with password:'{1}'".format(username, pwdHashed))
+        logger.warning("root user: {0} with hash:{1}".format(os.environ.get('VACUUMROOTUSER'), os.environ.get('VACUUMROOTHASH')))
         if pwdHashed == os.environ.get('VACUUMROOTHASH')  \
             and username == os.environ.get('VACUUMROOTUSER'):
             my_user = objects.User(username)

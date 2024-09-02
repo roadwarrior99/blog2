@@ -5,3 +5,4 @@ Flask-Login
 pycryptodome
 flask-ipban
 boto3
+python-dotenv
