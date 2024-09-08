@@ -1,12 +1,12 @@
-{% extends 'base.html' %}
+{% extends 'post_base.html' %}
 
 {% block content %}
-<p class="post">
-    <div class="postblock" data-keywords="{{ blog['rss'] }}">
+    <a href="/">Back to the blog...</a><br/>
+    <div class="postblock" data-keywords="{{ blog['seo'] }}">
         <a id="{{ blog['id'] }}">
             <span class="posttitle">{{ blog['subject'] }}</span>
+            <span class="postdate">{{ blog['date'] }}</span>
         </a><br/>
         {{ blog['body'] | safe }}
     </div>
-</p>
 {% endblock %}

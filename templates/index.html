@@ -4,9 +4,14 @@
 {%for blog in posts%}
 
     <div class="postbox" id="post{{blog['id']}}" data-keywords="{{blog['seo']}}">
-        <a href="/post/{{blog['id']}}"><span class="posttitle">{{blog['subject']}}</span></a><br/>
-        {{blog['body']|safe}}
+        <a href="/post/{{blog['id']}}"><span class="posttitle">{{blog['subject']}}</span></a>
+        <span class="postdate">{{ blog['date'] }}:</span>
+        <br/>
+        <div class="article">
+             {{blog['body']|safe}}
+        </div>
     </div>
+
 {%endfor%}
 
 

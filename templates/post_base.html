@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ blog['rss'] }}">
+    <meta name="keywords" content="{{ blog['seo'] }}">
+    <title>{{ blog['subject'] }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>while(motivation <= 0)</h1>
+    <nav>
+        <ul class="adminmenu">
+            {% if current_user.is_authenticated %}
+                <li><a href="{{ url_for('show_menu') }}">Menu</a></li>
+            {% else %}
+                <li><a href="{{ url_for('login_get') }}">Login</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        <p>© 2024 Another unused blog</p>
+    </footer>
+</body>
+</html>

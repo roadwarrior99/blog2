@@ -75,3 +75,34 @@ footer {
 .videoblock {
     display: inline-block;
 }
+
+.posttitle {
+    font-size: xx-large;
+}
+.postbox {
+    margin: 15px;
+    position: relative;
+}
+
+.fade-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 1));
+  display: block;
+  pointer-events: none;
+}
+.read-more {
+  display: block;
+  text-align: center;
+  margin-top: 10px;
+  font-weight: bold;
+  text-decoration: none;
+  color: #007BFF;
+}
+.article {
+  position: relative;
+  line-height: 1.5;
+}
