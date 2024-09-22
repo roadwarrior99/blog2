@@ -191,6 +191,8 @@ def public_content_file_upload():
             if request.form.get("Metadata"):
                 logger.info("Metadata removal image processing.")
                 new_img.append(image_processing.remove_metadata_image(file.stream, file.filename))
+            if request.form.get("ReMuxMovToMP4"):
+                new_img.append(image_processing.convert_mov_to_mp4(file.stream, file.filename))
             if len(new_img) > 0:
                 for img_file,filename in new_img:
                     if img_file:

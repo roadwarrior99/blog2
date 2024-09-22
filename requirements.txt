@@ -6,3 +6,6 @@ pycryptodome
 flask-ipban
 boto3
 python-dotenv
+opencv-python
+matplotlib
+ffmpeg-python
