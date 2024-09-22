@@ -33,6 +33,8 @@ ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
 good_list = "data/goodlist.txt"
 #s3_content = list_files()
 logger = logging.getLogger(__name__)
+timeobj = datetime.datetime.now()
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -285,6 +287,8 @@ def read_and_apply_good_list(goodlist):
                 ip_ban.ip_whitelist_add(line)
 
 if __name__ == '__main__':
+    logFileName = "data/blog2_" + timeobj.strftime("%Y-%m-%d_%H-%M-%S") + ".log"
+    logging.basicConfig(filename=logFileName, level=logging.INFO)
     login_manager.init_app(app)
     ip_ban.init_app(app)
     read_and_apply_good_list(good_list)

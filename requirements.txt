@@ -5,7 +5,7 @@ Flask-Login
 pycryptodome
 flask-ipban
 boto3
+numpy
 python-dotenv
 opencv-python
-matplotlib
 ffmpeg-python
