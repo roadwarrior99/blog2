@@ -12,6 +12,15 @@
           <form method="POST" action="/public_content" enctype=multipart/form-data>
             <input type=file name=file>
             <input type=submit value=Upload>
+              <label class="picture-options">Mobile
+                  <input type="checkbox" name="Mobile">
+              </label>
+              <label class="picture-options">Discord
+                  <input type="checkbox" name="Discord">
+              </label>
+              <label class="picture-options">Remove Metadata
+                  <input type="checkbox" name="Metadata">
+              </label>
           </form>
         </div>
         <div>
@@ -19,8 +28,10 @@
           <p>Click on the filename to view the object.</p>
           <ul>
             {% for Key, obj in contents.items() %}
-              <li>
+              <li class="linkcollectionli">
                 <a href="{{ url_for("public_content_content", Key=Key) }}"> {{ obj.Key }} </a>
+                <span class="publink">https://pub.cmh.sh/{{ Key }}</span>
+                <span class="copylink">Copy</span>
               </li>
             {% endfor %}
           </ul>

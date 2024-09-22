@@ -106,3 +106,6 @@ footer {
   position: relative;
   line-height: 1.5;
 }
+.publink {
+    display: none;
+}

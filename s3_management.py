@@ -17,7 +17,9 @@ def list_files():
     contents = dict()
     count = 0
     for item in s3.list_objects(Bucket=bucket_name)['Contents']:
-
+        filesplit = item["Key"].split(".")
+        fileext = filesplit[-1]
+        item["fileext"] = fileext
         contents[item['Key']] = item
         count+=1
     return contents

@@ -4,6 +4,11 @@ FIX response design for mobile for main blog page
 
 New Features:
 RSS FEED
+Options for resizing images before uploading to s3
+Options for remuxing a mov to mp4?
+
+
+
 
 Notes-
 new iam policy: vacuuum_flask_s3_access

@@ -18,6 +18,7 @@ from s3_management import mv_file
 from s3_management import s3_upload_file
 from s3_management import s3_remove_file
 from dotenv import load_dotenv
+import image_processing
 
 load_dotenv()
 app = Flask(__name__)
@@ -25,8 +26,8 @@ app.secret_key = os.environ.get("VACUUMSESSIONKEY")
 app.config['SESSION_TYPE'] = 'filesystem'
 auth = Blueprint('auth', __name__)
 login_manager = flask_login.LoginManager(app)
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4'}
-app.config['UPLOAD_FOLDER'] = '/home/colin/python/blog2/vacuumflask/uploads'
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov'}
+app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
 db_path = "data/vacuumflask.db"
 ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
 good_list = "data/goodlist.txt"
@@ -178,7 +179,26 @@ def public_content_file_upload():
     if 'file' in request.files:
         file = request.files['file']
         if file and allowed_file(file.filename):
-            s3_upload_file(file,file.filename)
+            new_img = []
+            if request.form.get('Mobile'):
+                logger.info("Mobile image processing.")
+                #this doesn't work
+                #the file is in a stream object and the image thing is expecting something else
+                new_img.append(image_processing.mobile_size_image(file.stream, file.filename))
+            if request.form.get("Discord"):
+                logger.info("Discord image processing.")
+                new_img.append(image_processing.discord_size_image(file.stream, file.filename))
+            if request.form.get("Metadata"):
+                logger.info("Metadata removal image processing.")
+                new_img.append(image_processing.remove_metadata_image(file.stream, file.filename))
+            if len(new_img) > 0:
+                for img_file,filename in new_img:
+                    if img_file:
+                        s3_upload_file(img_file, filename)
+                    else:
+                        print("No file to save.")
+            else:
+                s3_upload_file(file,file.filename)
             return render_template("save.html")
         else:
             return render_template("file_error.html")
@@ -197,7 +217,7 @@ def public_content_gallery():
     notvideofiles = dict()
     for key,obj in s3_content.items():
         file_typ = key.split('.')[-1]
-        if file_typ != "mp4":
+        if file_typ != "mp4" and file_typ != "mov":
             notvideofiles[key] = True
         else:
             notvideofiles[key] = False
@@ -263,8 +283,7 @@ def read_and_apply_good_list(goodlist):
                 ip_ban.ip_whitelist_add(line)
 
 if __name__ == '__main__':
-
     login_manager.init_app(app)
     ip_ban.init_app(app)
     read_and_apply_good_list(good_list)
-    #app.run(debug=True)
+

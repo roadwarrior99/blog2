@@ -12,6 +12,15 @@
           <form method="POST" action="/public_content" enctype=multipart/form-data>
             <input type=file name=file>
             <input type=submit value=Upload>
+              <label class="picture-options">Mobile
+                  <input type="checkbox" name="Mobile">
+              </label>
+              <label class="picture-options">Discord
+                  <input type="checkbox" name="Discord">
+              </label>
+              <label class="picture-options">Remove Metadata
+                  <input type="checkbox" name="Metadata">
+              </label>
           </form>
         </div>
         <div class="gallery">
@@ -25,7 +34,7 @@
                     {% else %}
                         <span class="videoblock">Edit
                         <video controls>
-                            <source src="https://pub.cmh.sh/{{ Key }}" type="video/mp4" />
+                            <source src="https://pub.cmh.sh/{{ Key }}"  />
                         </video><br/>
                         </span>
                     {% endif %}
