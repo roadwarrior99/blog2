@@ -9,6 +9,7 @@ import json
 from datetime import datetime
 import hash
 import logging
+import datetime
 import os
 import flask_login
 import objects
@@ -203,6 +204,7 @@ def public_content_file_upload():
                         print("No file to save.")
             else:
                 s3_upload_file(file,file.filename)
+            logger.info("S3 file uploaded: {0}".format(file.filename))
             return render_template("save.html")
         else:
             return render_template("file_error.html")
@@ -244,6 +246,7 @@ def public_content_move(Key):
     old_file_name = request.form.get("old_file")
     new_file_name = request.form.get("new_file")
     mv_file(old_file_name, new_file_name)
+    logger.info("Renamed S3 File from: {0} to {1}".format(old_file_name, new_file_name))
     s3_content = list_files()
     return render_template("public_content_item.html", item=s3_content[new_file_name])
 
@@ -253,6 +256,7 @@ def public_content_remove(Key):
     s3_content = list_files()
     if Key in s3_content:
         s3_remove_file(Key)
+        logger.info("Removed from S3: {0}".format(Key))
         s3_content = list_files()
         return render_template("save.html")
     else:
@@ -292,4 +296,4 @@ if __name__ == '__main__':
     login_manager.init_app(app)
     ip_ban.init_app(app)
     read_and_apply_good_list(good_list)
-
+    logger.info("Starting")
