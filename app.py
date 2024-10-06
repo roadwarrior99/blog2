@@ -10,6 +10,8 @@ from datetime import datetime
 import hash
 import logging
 import datetime
+import redis
+from flask_session import Session
 import os
 import flask_login
 import objects
@@ -24,7 +26,10 @@ import image_processing
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("VACUUMSESSIONKEY")
-app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_REDIS'] = redis.from_url(os.environ.get('REDIS_SERVER'))
 auth = Blueprint('auth', __name__)
 login_manager = flask_login.LoginManager(app)
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov'}
@@ -35,7 +40,7 @@ good_list = "data/goodlist.txt"
 #s3_content = list_files()
 logger = logging.getLogger(__name__)
 timeobj = datetime.datetime.now()
-
+server_session = Session(app)
 
 @login_manager.user_loader
 def load_user(user_id):
