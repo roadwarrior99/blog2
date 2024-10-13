@@ -6,13 +6,25 @@
     <div class="postbox" id="post{{blog['id']}}" data-keywords="{{blog['seo']}}">
         <a href="/post/{{blog['id']}}"><span class="posttitle">{{blog['subject']}}</span></a>
         <span class="postdate">{{ blog['date'] }}:</span>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for("edit_blog_posts",number=blog['id']) }}">Edit</a>
+                <a href="{{ url_for("remove_blog_post",postid=blog['id']) }}">Remove</a>
+            {% endif %}
         <br/>
         <div class="article">
              {{blog['body']|safe}}
         </div>
     </div>
-
 {%endfor%}
+    {%for blog in bottom_posts%}
+    <div class="postbox" id="post{{blog['id']}}" data-keywords="{{blog['seo']}}">
+        <a href="/post/{{blog['id']}}"><span class="posttitle">{{blog['subject']}}</span></a>
+        {% if current_user.is_authenticated %}
+                <a href="{{ url_for("edit_blog_posts",number=blog['id']) }}">Edit</a>
+                <a href="{{ url_for("remove_blog_post",postid=blog['id']) }}">Remove</a>
+        {% endif %}
 
+    </div>
+{%endfor%}
 
 {% endblock %}

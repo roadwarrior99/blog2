@@ -278,11 +278,17 @@ def index():
     results = cur.fetchall()
     conn.close()
     posts = []
+    bottom_posts = []
+    topCount = 0
     for post in results:
+        topCount = topCount + 1
         blog = objects.blog_post()
         blog.load_from_array(post)
-        posts.append(blog.serialize())
-    return render_template('index.html', posts=posts, debug=app.debug)
+        if topCount < 8:
+            posts.append(blog.serialize())
+        else:
+            bottom_posts.append(blog.serialize())
+    return render_template('index.html', posts=posts, debug=app.debug, bottom_posts=bottom_posts)
 
 @app.route('/new', methods=['GET'])
 @flask_login.login_required

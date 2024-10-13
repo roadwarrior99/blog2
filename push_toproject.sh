@@ -18,4 +18,5 @@ zip -r "../$zipFileName" "."
 cd ../
 rm -r "$destination"
 scp "$zipFileName" project:blog2
-ssh project "cd /media/vacuum-data;sudo mv /home/ubuntu/blog2/$zipFileName /media/vacuum-data/$zipFileName; sudo bash deploy.sh $zipFileName > deploy.log"
+ssh project "cd /media/vacuum-data;sudo mv /home/ubuntu/blog2/$zipFileName /media/vacuum-data/$zipFileName;sudo bash deploy.sh $zipFileName"
+ssh mail "cd /media/vacuum-data; sudo bash deploy.sh"
