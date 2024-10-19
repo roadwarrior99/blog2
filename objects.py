@@ -90,6 +90,8 @@ class blog_post:
             if id:
                 conn = sqlite3.connect(self.dbfile)
                 cur = conn.cursor()
+                sql = "delete from post_tags where post_id=?"
+                cur.execute(sql, [id])
                 sql = "delete from post where id=?"
                 cur.execute(sql, [id])
                 conn.commit()
@@ -139,4 +141,144 @@ class blog_post:
     def serialize(self):
         return {"id": self.id, "subject": self.subject, "date": self.date
             , "rss": self.rss, "seo": self.seo, "body": self.body}
+
+
+class tag_obj:
+    id = 0
+    name = ""
+    enabled = 1
+    dbfile = ""
+
+    def save(self):
+        if os.path.exists(self.dbfile):
+            conn = sqlite3.connect(self.dbfile)
+            cur = conn.cursor()
+            if self.id == 0:
+                sql = """insert into tags(name)
+                          values(?);"""
+
+                cur.execute(sql, [self.name])
+            else:
+                sql = "update tags set name=?, enabled=? where id=?"
+                cur.execute(sql, [self.name, self.enabled, self.id])
+            conn.commit()
+            conn.close()
+            return True
+        else:
+            print("DB file not set")
+            return False
+
+    def load(self, tag_id):
+        if os.path.exists(self.dbfile):
+            conn = sqlite3.connect(self.dbfile)
+            sql = "SELECT * FROM tag WHERE id = ?"
+            cur = conn.cursor()
+            #post_id = request.args.get('number', type=int)
+            cur.execute(sql, [tag_id])
+            results = cur.fetchall()
+            cur.close()
+            conn.close()
+            self.id = results[0][0]
+            self.name = results[0][1]
+            self.enabled = results[0][2]
+            return True
+        else:
+            print("DB file not set")
+    def load_by_name(self, tag_name):
+        if os.path.exists(self.dbfile):
+            conn = sqlite3.connect(self.dbfile)
+            sql = "SELECT * FROM tags WHERE name = ?"
+            cur = conn.cursor()
+            #post_id = request.args.get('number', type=int)
+            cur.execute(sql, [tag_name])
+            results = cur.fetchall()
+            cur.close()
+            conn.close()
+            self.id = results[0][0]
+            self.name = results[0][1]
+            self.enabled = results[0][2]
+            return True
+        else:
+            print("DB file not set")
+    def remove(self, tag_id):
+        if os.path.exists(self.dbfile):
+            if id:
+                conn = sqlite3.connect(self.dbfile)
+                cur = conn.cursor()
+                sql = "delete from post_tags where tag_id=?"
+                cur.execute(sql, [tag_id])
+                sql = "delete from tag where id=?"
+                cur.execute(sql, [tag_id])
+                conn.commit()
+                conn.close()
+            else:
+                print("ID not set.")
+        else:
+            print("DB file not set")
+
+class post_tags_obj:
+    post_tag_id = 0
+    post_id = 0
+    tag_id = 0
+    virtual_tag_name = ""
+    virtual_post_name = ""
+    dbfile=""
+
+    def load(self, post_tag_id):
+        if os.path.exists(self.dbfile):
+            if post_tag_id:
+                conn = sqlite3.connect(self.dbfile)
+                cur = conn.cursor()
+                sql = """
+                select pt.id,pt.post_id,pt.tag_id, t.name, p.subject
+                from post_tags pt
+                inner join post p on p.id=pt.post_id
+                inner join tags t on t.id=pt.tag_id
+                where pt.id=?
+                """
+                cur.execute(sql, [post_tag_id])
+                results = cur.fetchall()
+                conn.commit()
+                conn.close()
+                self.post_tag_id = post_tag_id
+                self.post_id = results[0][1]
+                self.tag_id = results[0][2]
+                self.virtual_tag_name = results[0][3]
+                self.virtual_post_name = results[0][4]
+                return True
+            else:
+                print("ID not set.")
+        else:
+            print("DB file not set")
+    def save(self):
+        if os.path.exists(self.dbfile):
+            conn = sqlite3.connect(self.dbfile)
+            cur = conn.cursor()
+            if self.post_tag_id == 0:
+                sql = """insert into post_tags(post_id,tag_id)
+                    values(?,?);"""
+                cur.execute(sql, [self.post_id, self.tag_id])
+            else:
+                sql = "update post_tags set post_id=?, tag_id=? where id=?"
+                cur.execute(sql,[self.post_id, self.tag_id, self.post_tag_id])
+            conn.commit()
+            conn.close()
+            return True
+        else:
+            print("DB file not set")
+            return False
+    def remove(self, post_tag_id):
+        if os.path.exists(self.dbfile):
+            if id:
+                conn = sqlite3.connect(self.dbfile)
+                cur = conn.cursor()
+                sql = "delete from post_tags where id=?"
+                cur.execute(sql, [post_tag_id])
+                conn.commit()
+                conn.close()
+            else:
+                print("ID not set.")
+        else:
+            print("DB file not set")
+
 

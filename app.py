@@ -186,33 +186,33 @@ def upload_file():
 def public_content_file_upload():
     if 'file' in request.files:
         file = request.files['file']
-        if file and allowed_file(file.filename):
-            new_img = []
-            if request.form.get('Mobile'):
-                logger.info("Mobile image processing.")
-                #this doesn't work
-                #the file is in a stream object and the image thing is expecting something else
-                new_img.append(image_processing.mobile_size_image(file.stream, file.filename))
-            if request.form.get("Discord"):
-                logger.info("Discord image processing.")
-                new_img.append(image_processing.discord_size_image(file.stream, file.filename))
-            if request.form.get("Metadata"):
-                logger.info("Metadata removal image processing.")
-                new_img.append(image_processing.remove_metadata_image(file.stream, file.filename))
-            if request.form.get("ReMuxMovToMP4"):
-                new_img.append(image_processing.convert_mov_to_mp4(file.stream, file.filename))
-            if len(new_img) > 0:
-                for img_file,filename in new_img:
-                    if img_file:
-                        s3_upload_file(img_file, filename)
-                    else:
-                        print("No file to save.")
-            else:
-                s3_upload_file(file,file.filename)
-            logger.info("S3 file uploaded: {0}".format(file.filename))
-            return render_template("save.html")
+        #if file and allowed_file(file.filename):
+        new_img = []
+        if request.form.get('Mobile'):
+            logger.info("Mobile image processing.")
+            #this doesn't work
+            #the file is in a stream object and the image thing is expecting something else
+            new_img.append(image_processing.mobile_size_image(file.stream, file.filename))
+        if request.form.get("Discord"):
+            logger.info("Discord image processing.")
+            new_img.append(image_processing.discord_size_image(file.stream, file.filename))
+        if request.form.get("Metadata"):
+            logger.info("Metadata removal image processing.")
+            new_img.append(image_processing.remove_metadata_image(file.stream, file.filename))
+        if request.form.get("ReMuxMovToMP4"):
+            new_img.append(image_processing.convert_mov_to_mp4(file.stream, file.filename))
+        if len(new_img) > 0:
+            for img_file,filename in new_img:
+                if img_file:
+                    s3_upload_file(img_file, filename)
+                else:
+                    print("No file to save.")
         else:
-            return render_template("file_error.html")
+            s3_upload_file(file,file.filename)
+        logger.info("S3 file uploaded: {0}".format(file.filename))
+        return render_template("save.html")
+        #else:
+        #    return render_template("file_error.html")
 
 @app.route('/public_content', methods=['GET'])
 @flask_login.login_required
@@ -288,8 +288,73 @@ def index():
             posts.append(blog.serialize())
         else:
             bottom_posts.append(blog.serialize())
-    return render_template('index.html', posts=posts, debug=app.debug, bottom_posts=bottom_posts)
+    resp = get_tags()
+    tag_render = json.loads(resp[0])
+    tags = tag_render["tags"]
+    max_font_size = tag_render["max_font_size"]
+    min_font_size = tag_render["min_font_size"]
+    max_count = tag_render["max_count"]
+    min_count = tag_render["min_count"]
+    return render_template('index.html', posts=posts, debug=app.debug, bottom_posts=bottom_posts,
+                           tags=tags, max_font_size=max_font_size, min_font_size=min_font_size, min_count=min_count,
+                           max_count=max_count)
 
+@app.route('/tag/<string:name>', methods=['GET'])
+def get_tag(name):
+    conn = sqlite3.connect(db_path)
+    sql = """select p.id, p.old_id, p.date,p.rss_description, p.seo_keywords, p.body, p.subject
+                from post p
+                inner join post_tags pt on pt.post_id=p.id
+                inner join tags t on t.id=pt.tag_id
+                where t.name like ? and t.enabled=1
+                order by p.id desc;"""
+    cur = conn.cursor()
+    cur.execute(sql, [name])
+    results = cur.fetchall()
+    conn.close()
+    posts = []
+    bottom_posts = []
+    topCount = 0
+    for post in results:
+        topCount = topCount + 1
+        blog = objects.blog_post()
+        blog.load_from_array(post)
+        posts.append(blog.serialize())
+
+    resp = get_tags()
+    tag_render = json.loads(resp[0])
+    tags = tag_render["tags"]
+    max_font_size = tag_render["max_font_size"]
+    min_font_size = tag_render["min_font_size"]
+    max_count = tag_render["max_count"]
+    min_count = tag_render["min_count"]
+    return render_template('index.html', posts=posts, debug=app.debug, bottom_posts=bottom_posts,
+                           tags=tags, max_font_size=max_font_size, min_font_size=min_font_size, min_count=min_count,
+                           max_count=max_count)
+@app.route("/api/tags", methods=['GET'])
+def get_tags():
+    conn = sqlite3.connect(db_path)
+    sql = """
+    select t.name, count(pt.id)
+    from tags t
+    left join post_tags pt on pt.tag_id=t.id
+    group by t.name
+    having t.enabled=1
+    """
+    cur = conn.cursor()
+    cur.execute(sql)
+    results = cur.fetchall()
+    tags = dict()
+    for tag_obj in results:
+        tags[tag_obj[0]] = tag_obj[1]
+    max_font_size = 50
+    min_font_size = 10
+    max_count = max(tags.values())
+    min_count = min(tags.values())
+    tags_obj = {"tags": tags, "max_font_size": max_font_size, "min_count": min_count, "min_font_size": min_font_size,
+                "max_count": max_count}
+
+    return json.dumps(tags_obj), 200, {'ContentType': 'application/json'}
 @app.route('/new', methods=['GET'])
 @flask_login.login_required
 def get_new_post():

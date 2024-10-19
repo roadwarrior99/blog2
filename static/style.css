@@ -109,3 +109,14 @@ footer {
 .publink {
     display: none;
 }
+.word-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.tag {
+    display: inline-block;
+    margin: 5px;
+    color: #333;
+    font-family: Arial, sans-serif;
+}
