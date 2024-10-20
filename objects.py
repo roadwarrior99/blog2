@@ -76,15 +76,80 @@ class blog_post:
                 cur.execute(sql, [self.subject, self.date
                     ,self.rss, self.seo
                     ,self.body])
+                cur.execute("SELECT max(id) FROM post;")
+                last_id_result = cur.fetchone()
+                if last_id_result:
+                    self.id = last_id_result[0]
             else:
                 sql = "update post set subject=?, date=?, rss_description=?, seo_keywords=?, body=? where id=?"
                 cur.execute(sql,[self.subject, self.date, self.rss, self.seo, self.body, self.id])
             conn.commit()
+
             conn.close()
+            self.save_seo_terms(self.seo, self.id)
             return True
         else:
             print("DB file not set")
             return False
+    def save_seo_terms(self, seo_raw, post_id):
+        if os.path.exists(self.dbfile):
+            tag_ids = dict()
+            conn = sqlite3.connect(self.dbfile)
+            cur = conn.cursor()
+            tagsql = """
+            select id, name
+            from tags
+            where enabled = 1
+            """
+            cur.execute(tagsql)
+            tag_result = cur.fetchall()
+            for result in tag_result:
+                tag_ids[result[1]] = result[0]  # name, id
+
+            seo_terms = seo_raw.split(",")
+            tag_ids_in_use = []
+            for term in seo_terms:
+                new_tag = tag_obj()
+                new_tag.dbfile = self.dbfile
+                if term.lower().strip() not in tag_ids:
+                    # Add term
+                    new_tag.name = term.lower().strip()
+                    new_tag.save()
+                    getidsql = "select max(id) from tags"
+                    cur.execute(getidsql)
+                    idresult = cur.fetchall()
+                    new_tag.id = idresult[0][0]
+                    tag_ids_in_use.append(new_tag.id)
+                else:
+                    new_tag = tag_obj()
+                    new_tag.dbfile = self.dbfile
+                    new_tag.load_by_name(term.lower().strip())
+                    tag_ids_in_use.append(new_tag.id)
+                # Does Post Tag exist?
+                post_tag_sql = """
+                select id 
+                from post_tags pt 
+                where pt.post_id=? and pt.tag_id=?
+                """
+                cur.execute(post_tag_sql, (post_id, new_tag.id))
+                existing_post_tag_records = cur.fetchall()
+                if not existing_post_tag_records:
+                    new_post_tag = post_tags_obj()
+                    new_post_tag.dbfile = self.dbfile
+                    new_post_tag.post_id = post_id
+                    new_post_tag.tag_id = new_tag.id
+                    new_post_tag.save()
+            #look for any post_tags to clean up.
+            post_tags_to_remove_Sql = """
+            delete from post_tags
+            where post_id=? and tag_id not in ({0})
+            """.format(','.join(map(str, tag_ids_in_use)))
+
+            cur.execute(post_tags_to_remove_Sql, [post_id])
+            conn.commit()
+            conn.close()
+
+
     def remove(self, id):
         if os.path.exists(self.dbfile):
             if id:
@@ -157,7 +222,7 @@ class tag_obj:
                 sql = """insert into tags(name)
                           values(?);"""
 
-                cur.execute(sql, [self.name])
+                cur.execute(sql, [self.name.lower().strip()])
             else:
                 sql = "update tags set name=?, enabled=? where id=?"
                 cur.execute(sql, [self.name, self.enabled, self.id])

@@ -7,7 +7,7 @@
             {% set font_size = (min_font_size + ((count - min_count) / (max_count - min_count)) * (max_font_size - min_font_size)) | round(2) %}
             <span class="tag" style="font-size: {{ font_size }}px;"><a href="{{ url_for("get_tag",name=tag) }}">{{ tag }}</a></span>
         {% endfor %}
-    </div>
+ </div>
 </div>
     <script>
     var acc = document.getElementsByClassName("accordion");
@@ -22,10 +22,10 @@
             }
         });
     }
-</script>
-{% endblock %}
+</script>{% endblock %}
 
 {% block content %}
+<a href="{{ url_for("index") }}" class="btn btn-primary"> Back</a>
 {%for blog in posts%}
 
     <div class="postbox" id="post{{blog['id']}}" data-keywords="{{blog['seo']}}">

@@ -328,7 +328,7 @@ def get_tag(name):
     min_font_size = tag_render["min_font_size"]
     max_count = tag_render["max_count"]
     min_count = tag_render["min_count"]
-    return render_template('index.html', posts=posts, debug=app.debug, bottom_posts=bottom_posts,
+    return render_template('tag.html', posts=posts, debug=app.debug, bottom_posts=bottom_posts,
                            tags=tags, max_font_size=max_font_size, min_font_size=min_font_size, min_count=min_count,
                            max_count=max_count)
 @app.route("/api/tags", methods=['GET'])

@@ -16,11 +16,11 @@
             {% else %}
                 <li><a href="{{ url_for('login_get') }}">Login</a></li>
             {% endif %}
+            <li>{% block wordcloud %}{% endblock %}</li>
         </ul>
     </nav>
     </header>
     <main>
-    {% block wordcloud %}{% endblock %}
         {% block content %}{% endblock %}
     </main>
     <footer>
