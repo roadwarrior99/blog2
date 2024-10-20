@@ -144,7 +144,6 @@ class blog_post:
             delete from post_tags
             where post_id=? and tag_id not in ({0})
             """.format(','.join(map(str, tag_ids_in_use)))
-
             cur.execute(post_tags_to_remove_Sql, [post_id])
             conn.commit()
             conn.close()
