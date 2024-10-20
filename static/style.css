@@ -144,3 +144,43 @@ footer {
             overflow: hidden;
             border-top: 1px solid #ccc;
         }
+        .code-block {
+    background-color: #2d2d2d;
+    color: #f8f8f2;
+    padding: 15px;
+    border-radius: 5px;
+    overflow-x: auto;
+    font-family: 'Courier New', Courier, monospace;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    white-space: pre-wrap; /* Ensure the text wraps correctly */
+}
+
+.code-block .language-bash {
+    display: block;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.code-block .language-bash .comment {
+    color: #75715e;
+}
+
+.code-block .language-bash .keyword {
+    color: #66d9ef;
+}
+
+.code-block .language-bash .string {
+    color: #e6db74;
+}
+
+.code-block .language-bash .variable {
+    color: #a6e22e;
+}
+
+.code-block .language-bash .function {
+    color: #a6e22e;
+}
+
+.code-block .language-bash .operator {
+    color: #f92672;
+}
