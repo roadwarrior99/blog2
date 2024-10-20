@@ -218,8 +218,9 @@ def public_content_file_upload():
 @flask_login.login_required
 def public_content():
     #if s3_content and len(s3_content) == 0:
+    lbNo = request.headers.get('X-LB-RouteNo')
     s3_content = list_files()
-    return render_template("public_content.html", contents=s3_content)
+    return render_template("public_content.html", contents=s3_content, load_balancer_route=lbNo)
 
 @app.route('/public_content/gallery', methods=['GET'])
 @flask_login.login_required
@@ -339,7 +340,7 @@ def get_tags():
     from tags t
     left join post_tags pt on pt.tag_id=t.id
     group by t.name
-    having t.enabled=1
+    having t.enabled=1 and count(pt.id) > 0
     """
     cur = conn.cursor()
     cur.execute(sql)

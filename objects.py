@@ -111,7 +111,7 @@ class blog_post:
             for term in seo_terms:
                 new_tag = tag_obj()
                 new_tag.dbfile = self.dbfile
-                if term.lower().strip() not in tag_ids:
+                if term.lower().strip() not in tag_ids.keys():
                     # Add term
                     new_tag.name = term.lower().strip()
                     new_tag.save()
@@ -145,6 +145,13 @@ class blog_post:
             where post_id=? and tag_id not in ({0})
             """.format(','.join(map(str, tag_ids_in_use)))
             cur.execute(post_tags_to_remove_Sql, [post_id])
+            
+            tag_cleanup_sql = """
+            delete from tags
+               where tags.id not in
+                   (select tag_id from post_tags);
+            """
+            cur.execute(tag_cleanup_sql)
             conn.commit()
             conn.close()
 

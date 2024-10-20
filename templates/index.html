@@ -26,8 +26,8 @@
 {% endblock %}
 
 {% block content %}
-{%for blog in posts%}
 
+{%for blog in posts%}
     <div class="postbox" id="post{{blog['id']}}" data-keywords="{{blog['seo']}}">
         <a href="/post/{{blog['id']}}"><span class="posttitle">{{blog['subject']}}</span></a>
         <span class="postdate">{{ blog['date'] }}:</span>
