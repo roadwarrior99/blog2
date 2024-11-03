@@ -11,6 +11,9 @@
           <h3>Upload your file here:</h3>
           <form method="POST" action="/public_content" enctype=multipart/form-data>
             <input type=file name=file>
+              <label for="new_filename">
+                <input type="text" name="new_filename">
+                Renamed File Name</label>
             <input type=submit value=Upload>
               <label class="picture-options">Mobile
                   <input type="checkbox" name="Mobile">

@@ -187,6 +187,8 @@ def public_content_file_upload():
     if 'file' in request.files:
         file = request.files['file']
         #if file and allowed_file(file.filename):
+        if file.filename != request.form.get('new_filename'):
+            file.filename = request.form.get('new_filename')
         new_img = []
         if request.form.get('Mobile'):
             logger.info("Mobile image processing.")
@@ -218,9 +220,8 @@ def public_content_file_upload():
 @flask_login.login_required
 def public_content():
     #if s3_content and len(s3_content) == 0:
-    lbNo = request.headers.get('X-LB-RouteNo')
     s3_content = list_files()
-    return render_template("public_content.html", contents=s3_content, load_balancer_route=lbNo)
+    return render_template("public_content.html", contents=s3_content)
 
 @app.route('/public_content/gallery', methods=['GET'])
 @flask_login.login_required

@@ -8,7 +8,7 @@ Options for resizing images before uploading to s3
 Options for remuxing a mov to mp4?
 
 
-
+/images/IMG_7515.jpeg500.png <- move to cdn
 
 Notes-
 new iam policy: vacuuum_flask_s3_access
