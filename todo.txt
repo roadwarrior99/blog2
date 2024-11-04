@@ -1,4 +1,5 @@
 Bugs:
+If the rename field is left blank the upload fails.
 
 FIX response design for mobile for main blog page
 
