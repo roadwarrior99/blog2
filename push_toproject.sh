@@ -19,4 +19,9 @@ cd ../
 rm -r "$destination"
 scp "$zipFileName" project:blog2
 ssh project "cd /media/vacuum-data;sudo mv /home/ubuntu/blog2/$zipFileName /media/vacuum-data/$zipFileName;sudo bash deploy.sh $zipFileName"
-ssh mail "cd /media/vacuum-data; sudo bash deploy.sh"
+success=$(ssh project "sudo docker ps | grep waitress | wc -l")
+if [ $success -ge 1 ]; then
+  ssh mail "cd /media/vacuum-data; sudo bash deploy.sh"
+else
+  echo "Build failed on project server, clean up yo shit"
+fi
