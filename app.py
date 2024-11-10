@@ -187,7 +187,9 @@ def public_content_file_upload():
     if 'file' in request.files:
         file = request.files['file']
         #if file and allowed_file(file.filename):
-        if file.filename != request.form.get('new_filename'):
+        if file.filename != request.form.get('new_filename')\
+               and request.form.get('new_filename')\
+                and request.form.get('new_filename') != "":
             file.filename = request.form.get('new_filename')
         new_img = []
         if request.form.get('Mobile'):
