@@ -22,6 +22,9 @@ from s3_management import s3_upload_file
 from s3_management import s3_remove_file
 from dotenv import load_dotenv
 import image_processing
+from watchtower import CloudWatchLogHandler
+import platform
+import datetime
 
 load_dotenv()
 app = Flask(__name__)
@@ -38,9 +41,21 @@ db_path = "data/vacuumflask.db"
 ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
 good_list = "data/goodlist.txt"
 #s3_content = list_files()
-logger = logging.getLogger(__name__)
 timeobj = datetime.datetime.now()
 server_session = Session(app)
+
+# Configure the Flask logger
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()#local only
+cloud_watch_stream_name = "vacuum_flask_log_{0}_{1}".format(platform.node(),timeobj.strftime("%Y%m%d%H%M%S"))
+cloudwatch_handler = CloudWatchLogHandler(
+    log_group_name='vacuum_flask',  # Replace with your desired log group name
+    stream_name=cloud_watch_stream_name,  # Replace with a stream name
+)
+handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+app.logger.addHandler(cloudwatch_handler)
+app.logger.setLevel(logging.INFO)
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -54,6 +69,7 @@ def login_get():
 def login_post():
     username = request.form.get('username')
     password = request.form.get('password')
+    logger.info("User:{0} tries to log in.".format(username))
     if username and password:
         pwdHashed = hash.hash(password)
         #logger.warning("User: {0} with password:'{1}'".format(username, pwdHashed))
