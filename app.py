@@ -19,6 +19,7 @@ from flask_ipban import IpBan
 from s3_management import list_files
 from s3_management import mv_file
 from s3_management import s3_upload_file
+import boto3
 from s3_management import s3_remove_file
 from dotenv import load_dotenv
 import image_processing

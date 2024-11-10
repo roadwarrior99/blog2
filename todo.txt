@@ -1,5 +1,9 @@
 Bugs:
-If the rename field is left blank the upload fails.
+Container images left forever
+containers left behind forever
+we are not check if the build succeeded before doing the other server
+this can result in the website being completely down if a build fails
+not ideal bud
 
 FIX response design for mobile for main blog page
 
