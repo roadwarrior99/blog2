@@ -10,12 +10,13 @@ fi
 oldimage=$(docker images | grep -w vacuumflask | awk '{print $3}')
 newimageid=$(sh build.sh | awk '{print $4}')
 runninginstance=$(docker ps | grep -w "$oldimage" | awk '{print $1}')
+echo "OldImageID:$oldimage newImageID:$newimageid runninginstanceid:$runninginstance"
 #echo "running instances: $runningistance"
 while IFS= read -r instance; do
 	docker kill "$instance"	
 done <<< "$runninginstance"
 sh run.sh
-sh run2.sh
+#sh run2.sh
 nowrunninginstance=$(docker ps | grep -w "$newimageid" | awk '{print $1}')
 docker ps
 echo "new running instance id is: $nowrunninginstance"

@@ -47,13 +47,11 @@ server_session = Session(app)
 
 # Configure the Flask logger
 logger = logging.getLogger(__name__)
-handler = logging.StreamHandler()#local only
 cloud_watch_stream_name = "vacuum_flask_log_{0}_{1}".format(platform.node(),timeobj.strftime("%Y%m%d%H%M%S"))
 cloudwatch_handler = CloudWatchLogHandler(
     log_group_name='vacuum_flask',  # Replace with your desired log group name
     stream_name=cloud_watch_stream_name,  # Replace with a stream name
 )
-handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 app.logger.addHandler(cloudwatch_handler)
 app.logger.setLevel(logging.INFO)
 
