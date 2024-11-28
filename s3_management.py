@@ -30,9 +30,10 @@ def download_file(file_name, _bucket_name=bucket_name):
     """
     Function to download a given file from an S3 bucket
     """
-    output = f"downloads/{file_name}"
+    just_file_name =os.path.basename(file_name)
+    output = f"downloads/{just_file_name}"
     dls3 = session.resource('s3')
-    logger.info(f"trying to download s3 file {file_name} from bucket {_bucket_name}")
+    logger.info(f"trying to download s3 file {just_file_name} from bucket {_bucket_name}")
     dls3.Bucket(_bucket_name).download_file(file_name, output)
 
     return output

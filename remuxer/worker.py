@@ -22,25 +22,23 @@ logger.addHandler(cloudwatch_handler)
 logger.setLevel(logging.INFO)
 
 def s3_watcher():
-
-    while True:
-        files = s3_management.list_files(internal_bucket)
-        for key,item in files.items():
-            # key is the path/file in s3
-            # item is the full object returned by s3
-            if item["fileext"] == "mov":
-                logger.info(f"Found a mov file {key}")
-                remux_file(key, internal_bucket)
-        logger.info("Sleeping 120 seconds.")
-        time.sleep(120)
+    files = s3_management.list_files(internal_bucket)
+    for key,item in files.items():
+        # key is the path/file in s3
+        # item is the full object returned by s3
+        if item["fileext"] == "mov":
+            logger.info(f"Found a mov file {key}")
+            remux_file(key, internal_bucket)
+    logger.info("Sleeping 120 seconds.")
 def remux_file(key, bucket):
     # Download the file from S3 to ElasticStorage
     download_path_key = s3_management.download_file(key, bucket)
     logger.info(f"Downloaded s3 {key} to {download_path_key}")
     # Convert the file
     # Use ffmpeg to remux the MOV to MP4
-    new_file_name = key.replace(".mov",".mp4")
+    new_file_name = download_path_key.replace(".mov",".mp4")
     logger.info("Starting remuxing")
+    logger.info(f"Remuxing file {download_path_key} to new file {new_file_name}")
     try:
         (
             ffmpeg
@@ -50,7 +48,7 @@ def remux_file(key, bucket):
             .run(quiet=True, overwrite_output=True)
         )
     except ffmpeg.Error as e:
-        logger.error(f"Error during remuxing: {e}")
+        logger.error(f"Error during remuxing: {e.stderr.decode()}")
         raise
     logger.info("Finished remuxing")
     # Upload to the public bucket
