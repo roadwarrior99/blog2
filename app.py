@@ -30,6 +30,7 @@ import datetime
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("VACUUMSESSIONKEY")
+internal_bucket = os.environ.get("INTERNAL_BUCKET_NAME")
 app.config['SESSION_TYPE'] = 'redis'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
@@ -219,7 +220,10 @@ def public_content_file_upload():
             logger.info("Metadata removal image processing.")
             new_img.append(image_processing.remove_metadata_image(file.stream, file.filename))
         if request.form.get("ReMuxMovToMP4"):
-            new_img.append(image_processing.convert_mov_to_mp4(file.stream, file.filename))
+            #new_img.append(image_processing.convert_mov_to_mp4(file.stream, file.filename))
+            logger.info(f"S3 Start Transfer to internal bucket {internal_bucket} of file {file.filename}")
+            s3_upload_file(file,file.filename,internal_bucket)
+            return render_template("save.html")
         if len(new_img) > 0:
             for img_file,filename in new_img:
                 if img_file:

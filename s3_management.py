@@ -1,7 +1,9 @@
 import boto3
 import os
+import logging
 from werkzeug.utils import secure_filename
 from Crypto.SelfTest.Cipher.test_OFB import file_name
+logger = logging.getLogger(__name__)
 
 bucket_name = os.environ.get("CDN_BUCKET_NAME")
 if os.environ.get("AWS_PROFILE_NAME"):
@@ -10,13 +12,13 @@ else:
     session = boto3.Session()
 s3 = session.client('s3')
 
-def list_files():
+def list_files(_bucket_name=bucket_name):
     """
     Function to list files in a given S3 bucket
     """
     contents = dict()
     count = 0
-    for item in s3.list_objects(Bucket=bucket_name)['Contents']:
+    for item in s3.list_objects(Bucket=_bucket_name)['Contents']:
         filesplit = item["Key"].split(".")
         fileext = filesplit[-1]
         item["fileext"] = fileext
@@ -24,12 +26,14 @@ def list_files():
         count+=1
     return contents
 
-def download_file(file_name):
+def download_file(file_name, _bucket_name=bucket_name):
     """
     Function to download a given file from an S3 bucket
     """
     output = f"downloads/{file_name}"
-    s3.Bucket(bucket_name).download_file(file_name, output)
+    dls3 = session.resource('s3')
+    logger.info(f"trying to download s3 file {file_name} from bucket {_bucket_name}")
+    dls3.Bucket(_bucket_name).download_file(file_name, output)
 
     return output
 
@@ -46,10 +50,10 @@ def create_folder(folder_name):
     if not folder_name.endswith('/'):
         folder_name += '/'
     s3.put_object(Bucket=bucket_name, Key=folder_name)
-def s3_upload_file(tempfile,filename):
+def s3_upload_file(tempfile,filename,_bucket_name=bucket_name):
     s3.upload_fileobj(Fileobj=tempfile
-                      ,Bucket=bucket_name
+                      ,Bucket=_bucket_name
                       ,Key=secure_filename(filename))
 
-def s3_remove_file(filename):
-     s3.delete_object(Bucket=bucket_name, Key=filename)
+def s3_remove_file(filename, _bucket_name=bucket_name):
+     s3.delete_object(Bucket=_bucket_name, Key=filename)

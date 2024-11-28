@@ -1,0 +1,8 @@
+boto3
+numpy
+python-dotenv
+opencv-python
+ffmpeg-python
+watchtower
+pycryptodome
+werkzeug

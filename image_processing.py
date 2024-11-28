@@ -67,7 +67,9 @@ def remove_metadata_image(file, filename):
     else:
         return file, filename
 
-def convert_mov_to_mp4(file, filename):
+#def convert_mov_to_mp4(file, filename):
+
+def convert_mov_to_mp4_old(file, filename):
        # Save the input MOV stream to a temporary file
     stream = io.BytesIO(file.read())
     stream.seek(0)
