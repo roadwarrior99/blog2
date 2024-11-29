@@ -54,7 +54,7 @@ def remux_file(key, bucket):
     # Upload to the public bucket
     logger.info(f"Starting Upload {new_file_name} to S3 public bucket.")
     with open(new_file_name, "rb") as new_file:
-        s3_management.s3_upload_file(new_file, new_file_name)
+        s3_management.s3_upload_file(new_file, os.path.basename(new_file_name))
     logging.info(f"Uploaded {new_file_name} to the public bucket.")
     # clean up files in elasticstorage
     os.remove(download_path_key)

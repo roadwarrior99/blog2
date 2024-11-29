@@ -1,0 +1,14 @@
+{
+  "detail-type": ["Object Created"],
+  "source": ["aws.s3"],
+  "detail": {
+    "bucket": {
+      "name": ["internal.cmh.sh"]
+    },
+    "object": {
+      "key": [{
+        "suffix": ".mov"
+      }]
+    }
+  }
+}
