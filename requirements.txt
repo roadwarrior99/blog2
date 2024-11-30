@@ -8,7 +8,7 @@ boto3
 numpy
 python-dotenv
 opencv-python
-ffmpeg-python
 redis
 flask_session
 watchtower
+pyotp

@@ -3,7 +3,6 @@ import numpy as np
 import os
 import logging
 import math
-import ffmpeg
 import io
 logger = logging.getLogger(__name__)
 def getfileext(filename):
@@ -67,46 +66,5 @@ def remove_metadata_image(file, filename):
     else:
         return file, filename
 
-#def convert_mov_to_mp4(file, filename):
 
-def convert_mov_to_mp4_old(file, filename):
-       # Save the input MOV stream to a temporary file
-    stream = io.BytesIO(file.read())
-    stream.seek(0)
-    with open('temp_input.mov', 'wb') as f:
-        f.write(stream.read())
 
-    # Create a BytesIO stream for the output MP4
-    output_mp4_stream = io.BytesIO()
-
-    # Use ffmpeg to remux the MOV to MP4
-    try:
-        (
-            ffmpeg
-            .input('temp_input.mov')
-            .output('temp_output.mp4', vcodec='libx264', acodec='aac')  # Copy video and audio streams without re-encoding
-            .run(quiet=True, overwrite_output=True)
-        )
-
-        # Read the output MP4 into a BytesIO stream
-        with open('temp_output.mp4', 'rb') as f:
-            output_mp4_stream.write(f.read())
-
-        # Reset the stream's position to the beginning
-        output_mp4_stream.seek(0)
-
-        #cleanup temp files
-        if os.path.exists('temp_input.mov'):
-            os.remove('temp_input.mov')
-        if os.path.exists('temp_output.mp4'):
-            os.remove('temp_output.mp4')
-
-    except ffmpeg.Error as e:
-        print(f"Error during remuxing: {e}")
-        raise
-
-    oldfileparts = filename.split(".")
-    filestart = oldfileparts[0]
-    newFilename = filestart + '.mp4'
-
-    return output_mp4_stream, newFilename

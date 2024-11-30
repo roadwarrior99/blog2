@@ -5,6 +5,7 @@ from flask import Flask, request, Blueprint, render_template, make_response
 import sqlite3
 import yaml
 from flask_login import login_required, current_user
+import pyotp
 import json
 from datetime import datetime
 import hash
@@ -69,18 +70,23 @@ def login_get():
 def login_post():
     username = request.form.get('username')
     password = request.form.get('password')
+    otpin = request.form.get('otp')
     logger.info("User:{0} tries to log in.".format(username))
-    if username and password:
+    if username and password and otpin:
         pwdHashed = hash.hash(password)
+        totp = pyotp.TOTP(os.environ['OTS_SECRET'])
+        otpValid = totp.verify(otpin)
         #logger.warning("User: {0} with password:'{1}'".format(username, pwdHashed))
         #logger.warning("root user: {0} with hash:{1}".format(os.environ.get('VACUUMROOTUSER'), os.environ.get('VACUUMROOTHASH')))
         if pwdHashed == os.environ.get('VACUUMROOTHASH')  \
-            and username == os.environ.get('VACUUMROOTUSER'):
+            and username == os.environ.get('VACUUMROOTUSER') \
+            and otpValid:
             my_user = objects.User(username)
             flask_login.login_user(my_user)
+            logger.info("Admin User Logged In.")
             return render_template("loginmenu.html")
         else:
-            logger.warning("User or Password hash didn't match")
+            logger.warning("User or Password or OTP didn't match")
             ip_ban.add()
             logger.warning("Failed login with headers: {0}".format(request.headers))
             return render_template("authissue.html", code=401)
