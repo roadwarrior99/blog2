@@ -7,3 +7,8 @@ beanstalk
 beanstalk/.
 .env
 *.zip
+tmp
+tmp/*
+.idea
+node_modules
+

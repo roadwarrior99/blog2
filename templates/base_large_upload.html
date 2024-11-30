@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Another Unused Blog</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
+<script>
+            Dropzone.options.myDropzone = {
+            // Configuration options go here
+                maxFilesize: 1024,
+                chunking: true,      // enable chunking
+                forceChunking: true, // forces chunking when file.size < chunkSize
+                parallelChunkUploads: true, // allows chunks to be uploaded in parallel (this is independent of the parallelUploads option)
+                chunkSize: 1000000,  // chunk size 1,000,000 bytes (~1MB)
+                retryChunks: true,   // retry chunks on failure
+                retryChunksLimit: 3, // retry maximum of 3 times (default is 3)
+        };
+</script>
+</head>
+<body>
+    <header>
+        <h1>while(motivation <= 0)</h1>
+    <nav>
+        <ul class="adminmenu">
+            {% if current_user.is_authenticated %}
+                <li><a href="{{ url_for('show_menu') }}">Menu</a></li>
+            {% else %}
+                <li><a href="{{ url_for('login_get') }}">Login</a></li>
+            {% endif %}
+            <li>{% block wordcloud %}{% endblock %}</li>
+        </ul>
+    </nav>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        <p>© 2024 Another unused blog</p>
+    </footer>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/prism.min.js"></script>
+    <!-- Prism.js Bash language component -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/components/prism-bash.min.js"></script>
+</body>
+</html>

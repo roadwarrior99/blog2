@@ -8,6 +8,9 @@ from flask_login import login_required, current_user
 import pyotp
 import json
 from datetime import datetime
+
+from werkzeug.utils import secure_filename
+
 import hash
 import logging
 import datetime
@@ -35,6 +38,7 @@ internal_bucket = os.environ.get("INTERNAL_BUCKET_NAME")
 app.config['SESSION_TYPE'] = 'redis'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB in bytes
 app.config['SESSION_REDIS'] = redis.from_url(os.environ.get('REDIS_SERVER'))
 auth = Blueprint('auth', __name__)
 login_manager = flask_login.LoginManager(app)
@@ -96,7 +100,7 @@ def login_post():
 
 @app.route('/brat/<int:number>')
 def get_brat_no(number):
-    return f'Brat number {number} reporting in for duity'
+    return f'Brat number {number} reporting in for duty'
 
 @app.route('/edit/<int:number>', methods=['GET'])
 @flask_login.login_required
@@ -203,12 +207,76 @@ def upload_file():
     else:
         return json.dumps({'success': False, 'message': 'file was not provided'}), 200, {'ContentType': 'application/json'}
 
+@app.route('/public_content_large', methods=['GET'])
+@flask_login.login_required
+def public_content_large():
+    return render_template("public_content_large_upload.html")
+
+@app.route('/public_content_large', methods=['POST'])
+@flask_login.login_required
+def public_content_large_upload():
+    if 'file' in request.files:
+        file = request.files['file']
+        save_path = os.path.join(os.environ.get("LARGE_FILE_TMP_PATH"), secure_filename(file.filename))
+        current_chunk = int(request.form['dzchunkindex'])
+        # If the file already exists it's ok if we are appending to it,
+        # but not if it's new file that would overwrite the existing one
+        if os.path.exists(save_path) and current_chunk == 0:
+            # 400 and 500s will tell dropzone that an error occurred and show an error
+            return make_response(('File already exists', 400))
+
+        try:
+            with open(save_path, 'ab') as f:
+                f.seek(int(request.form['dzchunkbyteoffset']))
+                f.write(file.stream.read())
+        except OSError:
+            # log.exception will include the traceback so we can see what's wrong
+            logger.exception('Could not write to file')
+            return make_response(("Not sure why,"
+                                  " but we couldn't write the file to disk", 500))
+
+        total_chunks = int(request.form['dztotalchunkcount'])
+
+        if current_chunk + 1 == total_chunks:
+            # This was the last chunk, the file should be complete and the size we expect
+            if os.path.getsize(save_path) != int(request.form['dztotalfilesize']):
+                logger.error(f"File {file.filename} was completed, "
+                          f"but has a size mismatch."
+                          f"Was {os.path.getsize(save_path)} but we"
+                          f" expected {request.form['dztotalfilesize']} ")
+                return make_response(('Size mismatch', 500))
+            else:
+                logger.info(f'File {file.filename} has been uploaded to the container successfully')
+                #
+                #CMH My code picks up here
+                #This function borrowed from stack overflow https://stackoverflow.com/questions/44727052/handling-large-file-uploads-with-flask
+                #
+                with open(save_path,'rb') as complete_file_obj:
+                    if request.form.get("ReMuxMovToMP4"):
+                        # new_img.append(image_processing.convert_mov_to_mp4(file.stream, file.filename))
+                        logger.info(f"S3 Start Transfer to internal bucket {internal_bucket} of file {file.filename}")
+                        s3_upload_file(complete_file_obj, file.filename, internal_bucket)
+                        return render_template("save.html")
+                    else:
+                        s3_upload_file(complete_file_obj, file.filename)
+                        logger.info(f"File {file.filename} has been uploaded to the pubilc bucket successfully")
+                os.remove(save_path)#clean up local chunked file
+                return render_template("save.html")
+        else:
+            logger.debug(f'Chunk {current_chunk + 1} of {total_chunks} '
+                      f'for file {file.filename} complete')
+
+        return make_response(("Chunk upload successful", 200))
+    else:
+        logger.error("Upload hit without a sending a file.")
+
 @app.route('/public_content', methods=['POST'])
 @flask_login.login_required
 def public_content_file_upload():
     if 'file' in request.files:
         file = request.files['file']
         #if file and allowed_file(file.filename):
+        #TODO: There is a bug with rename, when you rename and remux at the same time, it keeps the old filename
         if file.filename != request.form.get('new_filename')\
                and request.form.get('new_filename')\
                 and request.form.get('new_filename') != "":
@@ -240,6 +308,8 @@ def public_content_file_upload():
             s3_upload_file(file,file.filename)
         logger.info("S3 file uploaded: {0}".format(file.filename))
         return render_template("save.html")
+    else:
+        logger.error("Upload hit without a sending a file.")
         #else:
         #    return render_template("file_error.html")
 

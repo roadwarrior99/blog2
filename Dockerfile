@@ -18,6 +18,9 @@ COPY requirements.txt requirements.txt
 
 RUN pip3 install -r requirements.txt
 
+#Make a temp dir for large uploads
+RUN mkdir /tmp/downloads
+
 EXPOSE 8080
 
 # Run it
