@@ -1,0 +1,109 @@
+{
+    "family": "vacuumflask_workers",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE",
+        "EC2"
+    ],
+    "cpu": "1024",
+    "memory": "2048",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "containerDefinitions": [
+        {
+            "name": "vacuumflask",
+            "image": "631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.sh:vacuumflask",
+            "portMappings": [
+                {
+                    "name": "vacuumflask",
+                    "containerPort": 8080,
+                    "hostPort": 8080,
+                    "protocol": "tcp",
+                    "appProtocol": "http"
+                }
+            ],
+            "command": ["waitress-serve", "app:app"],
+            "essential": true,
+            "linuxParameters": {
+                "initProcessEnabled": true
+            },
+            "environment": [
+                {
+                    "name": "VACUUMROOTHASH",
+                    "value": "16fec84300b2a604cdee77adb587430a193e0943f21768377ccd3fe15f355878"
+                },{
+                    "name": "VACUUMROOTUSER",
+                    "value": "colin"
+                },{
+                    "name": "VACUUMSESSIONKEY",
+                    "value": "9f296174709087c981bf35f3fc34a2b885d7db7956af2f82c2731af22e6456cc"
+                },{
+                    "name": "VACUUMSALT",
+                    "value": "418070b967bbafebb930e4ac9e6f99f16c7d7c30455a94289fd06c7cae592795"
+                },{
+                    "name": "CDN_BUCKET_NAME",
+                    "value": "cmh.sh"
+                },{
+                    "name": "INTERNAL_BUCKET_NAME",
+                    "value": "internal.cmh.sh"
+                },{
+                    "name": "REDIS_SERVER",
+                    "value": "redis://172.31.92.117:6379"
+                },{
+                    "name": "OTS_SECRET",
+                    "value": "47PAFVBVMPRCSWLM5OY3OTHP7OCHUGC2"
+                },{
+                    "name": "AWS_CONFIG_FILE",
+                    "value": "/tmp/data/aws_config"
+                },{
+                    "name": "AWS_DEFAULT_REGION",
+                    "value": "us-east-1"
+                }
+            ],
+            "healthCheck": {
+                "command": [
+                    "CMD-SHELL",
+                    "curl -f http://localhost:8080/ || exit 1"
+                ],
+                "interval": 10,
+                "timeout": 5,
+                "retries": 3,
+                "startPeriod": 60
+            },
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "vacuum_flask",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "_eks_"
+                }
+            },
+            "mountPoints": [
+                {
+                    "sourceVolume": "vacuumdata",
+                    "containerPath": "/tmp",
+                    "readOnly": false
+                }
+            ]
+        }
+    ],
+    "executionRoleArn": "arn:aws:iam::631538352062:role/vacuum_flask_worker_task_exec",
+    "taskRoleArn": "arn:aws:iam::631538352062:role/ecs_vacuumflask_taskrole",
+   "volumes": [
+              {
+                  "name": "vacuumdata",
+                  "efsVolumeConfiguration": {
+                      "fileSystemId": "fs-05863c9e54e7cdfa4",
+                      "rootDirectory": "/",
+                      "transitEncryption": "ENABLED",
+                      "transitEncryptionPort": 2049,
+                      "authorizationConfig": {
+                          "iam": "ENABLED",
+                          "accessPointId": "fsap-02de3798d61caf658"
+                      }
+                  }
+              }
+            ]
+}

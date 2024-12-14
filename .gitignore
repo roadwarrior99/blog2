@@ -11,4 +11,4 @@ tmp
 tmp/*
 .idea
 node_modules
-
+create_eks_vacuumflask_env.sh
