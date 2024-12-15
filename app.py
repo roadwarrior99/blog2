@@ -32,8 +32,38 @@ import platform
 import datetime
 
 load_dotenv()
+secrets=dict()
+
 app = Flask(__name__)
-app.secret_key = os.environ.get("VACUUMSESSIONKEY")
+timeobj = datetime.datetime.now()
+# Configure the Flask logger
+logger = logging.getLogger(__name__)
+cloud_watch_stream_name = "vacuum_flask_log_{0}_{1}".format(platform.node(),timeobj.strftime("%Y%m%d%H%M%S"))
+cloudwatch_handler = CloudWatchLogHandler(
+    log_group_name='vacuum_flask',  # Replace with your desired log group name
+    stream_name=cloud_watch_stream_name,  # Replace with a stream name
+)
+app.logger.addHandler(cloudwatch_handler)
+app.logger.setLevel(logging.INFO)
+
+secmgrclient = boto3.client('secretsmanager', region_name=os.environ.get("AWS_REGION"))
+secResponse = secmgrclient.get_secret_value(SecretId=os.environ.get("AWS_SECRET_ID"))
+logger.info("AWS Secrets manager response: {0}".format(secResponse["ResponseMetadata"]["HTTPStatusCode"]))
+if secResponse['SecretString']:
+    secrets = json.loads(secResponse['SecretString'])
+
+
+
+if os.environ.get("VACUUMSESSIONKEY"):
+    app.secret_key = os.environ.get("VACUUMSESSIONKEY")
+else:
+    app.secret_key = secrets['VACUUMSESSIONKEY']
+
+sec_keys = ["OTS_SECRET", "VACUUMROOTUSER", "VACUUMROOTHASH", "VACUUMSALT", "VACUUMAPIKEYSALT"]
+for key in sec_keys:
+    if os.environ.get(key):
+        secrets[key] = os.environ.get(key)
+
 internal_bucket = os.environ.get("INTERNAL_BUCKET_NAME")
 app.config['SESSION_TYPE'] = 'redis'
 app.config['SESSION_PERMANENT'] = False
@@ -48,23 +78,15 @@ db_path = "data/vacuumflask.db"
 ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
 good_list = "data/goodlist.txt"
 #s3_content = list_files()
-timeobj = datetime.datetime.now()
+
 server_session = Session(app)
 
-# Configure the Flask logger
-logger = logging.getLogger(__name__)
-cloud_watch_stream_name = "vacuum_flask_log_{0}_{1}".format(platform.node(),timeobj.strftime("%Y%m%d%H%M%S"))
-cloudwatch_handler = CloudWatchLogHandler(
-    log_group_name='vacuum_flask',  # Replace with your desired log group name
-    stream_name=cloud_watch_stream_name,  # Replace with a stream name
-)
-app.logger.addHandler(cloudwatch_handler)
-app.logger.setLevel(logging.INFO)
+
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    user = objects.User(user_id)
+    user = objects.User(user_id, secrets['VACUUMAPIKEYSALT'], secrets['VACUUMSALT'])
     return user
 
 @app.route('/login', methods=['GET'])
@@ -74,16 +96,20 @@ def login_get():
 def login_post():
     username = request.form.get('username')
     password = request.form.get('password')
+
+
+
+
     otpin = request.form.get('otp')
     logger.info("User:{0} tries to log in.".format(username))
     if username and password and otpin:
-        pwdHashed = hash.hash(password)
-        totp = pyotp.TOTP(os.environ['OTS_SECRET'])
+        pwdHashed = hash.hash(password, secrets["VACUUMSALT"])
+        totp = pyotp.TOTP(secrets['OTS_SECRET'])
         otpValid = totp.verify(otpin)
         #logger.warning("User: {0} with password:'{1}'".format(username, pwdHashed))
         #logger.warning("root user: {0} with hash:{1}".format(os.environ.get('VACUUMROOTUSER'), os.environ.get('VACUUMROOTHASH')))
-        if pwdHashed == os.environ.get('VACUUMROOTHASH')  \
-            and username == os.environ.get('VACUUMROOTUSER') \
+        if pwdHashed == secrets['VACUUMROOTHASH']  \
+            and username == secrets['VACUUMROOTUSER'] \
             and otpValid:
             my_user = objects.User(username)
             flask_login.login_user(my_user)

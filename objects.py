@@ -22,16 +22,20 @@ class User:
         return self.__apikeyexpiration
     def get_apikey(self):
         return self.__apikey
-    def __init__(self, userID):
+    def __init__(self, userID,VACUUMAPIKEYSALT="", VACUUMSALT=""):
         #VACUUMAPIKEYSALT
         self.__userID = userID
         self.__authed = True
         self.__active = True
         self.__anonymous = False
-        apikeyGen = (os.environ.get("VACUUMAPIKEYSALT") + userID
+        if os.environ.get('VACUUMSALT'):
+            VACUUMSALT = os.environ.get('VACUUMSALT')
+        if os.environ.get("VACUUMAPIKEYSALT"):
+            VACUUMAPIKEYSALT = os.environ.get("VACUUMAPIKEYSALT")
+        apikeyGen = (VACUUMAPIKEYSALT + userID
             + datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")) \
-            + os.environ.get("VACUUMAPIKEYSALT")
-        self.__apikey = hash.hash(apikeyGen)
+            + VACUUMAPIKEYSALT
+        self.__apikey = hash.hash(apikeyGen, VACUUMSALT)
         self.__apikeyexpiration = datetime.datetime.now() + datetime.timedelta(hours=1)
 
 class blog_post:

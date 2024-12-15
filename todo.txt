@@ -1,17 +1,15 @@
 Bugs:
 Container images left forever
 containers left behind forever
-we are not check if the build succeeded before doing the other server
-this can result in the website being completely down if a build fails
-not ideal bud
-
-FIX response design for mobile for main blog page
+Implement Secrets manager rather than env for actual secrets
+ALB Log permissions issue
+ALB ip address pass through
+ECS efs permissions issue
+Some way to check in ECS task / service definitions that doesn't expose secrets
 
 New Features:
 RSS FEED
 Options for resizing images before uploading to s3
-Options for remuxing a mov to mp4?
-
 
 /images/IMG_7515.jpeg500.png <- move to cdn
 
@@ -19,9 +17,6 @@ Notes-
 new iam policy: vacuuum_flask_s3_access
 new iam role: vacuuum_flask_access
 user: vacuumflask
-
-move raphael captions above browers window so it doesn't get cut off.
-
 
 docker images | grep -w vacuumflask | awk '{print $3}'
 docker ps | grep -w "06606dcf6fd9" | awk '{print $1}'

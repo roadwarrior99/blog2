@@ -3,9 +3,11 @@ import sys
 import os
 from dotenv import load_dotenv
 load_dotenv()
-def hash(input_str):
+def hash(input_str, salt=None):
     h = SHA512.new(truncate="256")
-    b = bytes(input_str + os.environ.get('VACUUMSALT'), 'utf-8')
+    if salt is None:
+        salt = os.environ.get('VACUUMSALT')
+    b = bytes(input_str + salt, 'utf-8')
     h.update(b)
     return h.hexdigest()
 
