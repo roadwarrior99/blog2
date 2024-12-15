@@ -12,7 +12,14 @@ def hash(input_str, salt=None):
     return h.hexdigest()
 
 if __name__ == '__main__':
+    if len(sys.argv) < 3:
         input_str = input("Enter the value you wish to hash: ")
         out = hash(input_str)
         print(out)
+    else:
+        input_str = sys.argv[1]
+        salt = sys.argv[2]
+        out = hash(input_str, salt)
+        print(out)
+
 

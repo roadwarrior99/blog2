@@ -31,18 +31,6 @@
             },
             "environment": [
                 {
-                    "name": "VACUUMROOTHASH",
-                    "value": "16fec84300b2a604cdee77adb587430a193e0943f21768377ccd3fe15f355878"
-                },{
-                    "name": "VACUUMROOTUSER",
-                    "value": "colin"
-                },{
-                    "name": "VACUUMSESSIONKEY",
-                    "value": "9f296174709087c981bf35f3fc34a2b885d7db7956af2f82c2731af22e6456cc"
-                },{
-                    "name": "VACUUMSALT",
-                    "value": "418070b967bbafebb930e4ac9e6f99f16c7d7c30455a94289fd06c7cae592795"
-                },{
                     "name": "CDN_BUCKET_NAME",
                     "value": "cmh.sh"
                 },{
@@ -52,14 +40,14 @@
                     "name": "REDIS_SERVER",
                     "value": "redis://172.31.92.117:6379"
                 },{
-                    "name": "OTS_SECRET",
-                    "value": "47PAFVBVMPRCSWLM5OY3OTHP7OCHUGC2"
-                },{
                     "name": "AWS_CONFIG_FILE",
                     "value": "/tmp/data/aws_config"
                 },{
                     "name": "AWS_DEFAULT_REGION",
                     "value": "us-east-1"
+                },{
+                    "name": "AWS_SECRET_ID",
+                    "value": "AWS_SECRET_ID=arn:aws:secretsmanager:us-east-1:631538352062:secret:vacuumflask-YmcOKn"
                 }
             ],
             "healthCheck": {
