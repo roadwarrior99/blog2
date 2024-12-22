@@ -47,7 +47,7 @@
                     "value": "us-east-1"
                 },{
                     "name": "AWS_SECRET_ID",
-                    "value": "AWS_SECRET_ID=arn:aws:secretsmanager:us-east-1:631538352062:secret:vacuumflask-YmcOKn"
+                    "value": "arn:aws:secretsmanager:us-east-1:631538352062:secret:vacuumflask-YmcOKn"
                 }
             ],
             "healthCheck": {

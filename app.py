@@ -51,6 +51,7 @@ secResponse = secmgrclient.get_secret_value(SecretId=os.environ.get("AWS_SECRET_
 logger.info("AWS Secrets manager response: {0}".format(secResponse["ResponseMetadata"]["HTTPStatusCode"]))
 if secResponse['SecretString']:
     secrets = json.loads(secResponse['SecretString'])
+    logger.info("AWS Secrets manager secrets have been loaded.")
 
 
 
@@ -63,6 +64,7 @@ sec_keys = ["OTS_SECRET", "VACUUMROOTUSER", "VACUUMROOTHASH", "VACUUMSALT", "VAC
 for key in sec_keys:
     if os.environ.get(key):
         secrets[key] = os.environ.get(key)
+        logger.info(f"Local environment variable {key} found, overriding secrets manager value.")
 
 internal_bucket = os.environ.get("INTERNAL_BUCKET_NAME")
 app.config['SESSION_TYPE'] = 'redis'
@@ -72,7 +74,6 @@ app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB in bytes
 app.config['SESSION_REDIS'] = redis.from_url(os.environ.get('REDIS_SERVER'))
 auth = Blueprint('auth', __name__)
 login_manager = flask_login.LoginManager(app)
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov'}
 app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
 db_path = "data/vacuumflask.db"
 ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
@@ -116,6 +117,12 @@ def login_post():
             logger.info("Admin User Logged In.")
             return render_template("loginmenu.html")
         else:
+            if username == secrets['VACUUMROOTUSER']:
+                logger.info("Admin username matched")
+            if pwdHashed == secrets['VACUUMROOTHASH']:
+                logger.info("pwd matched")
+            if otpValid:
+                logger.info("OTP provided is Valid")
             logger.warning("User or Password or OTP didn't match")
             ip_ban.add()
             logger.warning("Failed login with headers: {0}".format(request.headers))
