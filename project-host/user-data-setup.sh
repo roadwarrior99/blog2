@@ -24,4 +24,10 @@ aws ecr get-login-password --region us-east-1 | docker login --username AWS --pa
 sudo docker pull 631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.sh:vacuumflask
 sudo sh /media/vacuum-data/run.sh
 
+#ECS related
+if [ -d /etc/ecs ]; then
+  echo "ECS_CLUSTER=vacuumflask_workers" > /etc/ecs/ecs.config
+  echo "ECS_BACKEND_HOST=" >> /etc/ecs/ecs.config
+  #TODO: register with the alb?
+fi
 
