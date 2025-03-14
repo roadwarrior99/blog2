@@ -39,10 +39,19 @@ timeobj = datetime.datetime.now()
 # Configure the Flask logger
 logger = logging.getLogger(__name__)
 cloud_watch_stream_name = "vacuum_flask_log_{0}_{1}".format(platform.node(),timeobj.strftime("%Y%m%d%H%M%S"))
-cloudwatch_handler = CloudWatchLogHandler(
-    log_group_name='vacuum_flask',  # Replace with your desired log group name
-    stream_name=cloud_watch_stream_name,  # Replace with a stream name
-)
+if os.environ.get("AWS_PROFILE_NAME"):
+    boto3.setup_default_session(profile_name=os.environ.get("AWS_PROFILE_NAME"), region_name=os.environ.get("AWS_REGION_NAME"))
+    logger.info("AWS_PROFILE set to {0}".format(os.environ.get("AWS_PROFILE_NAME")))
+    cloudwatch_handler = CloudWatchLogHandler(
+        log_group_name='vacuum_flask',  # Replace with your desired log group name
+        stream_name=cloud_watch_stream_name,
+        boto3_profile_name=os.environ.get("AWS_PROFILE_NAME"),
+    )
+else:
+    cloudwatch_handler = CloudWatchLogHandler(
+        log_group_name='vacuum_flask',  # Replace with your desired log group name
+        stream_name=cloud_watch_stream_name,  # Replace with a stream name
+    )
 app.logger.addHandler(cloudwatch_handler)
 app.logger.setLevel(logging.INFO)
 
@@ -53,7 +62,7 @@ if secResponse['SecretString']:
     secrets = json.loads(secResponse['SecretString'])
     logger.info("AWS Secrets manager secrets have been loaded.")
 
-
+ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'mov', 'webm', 'mp4', 'zip']
 
 if os.environ.get("VACUUMSESSIONKEY"):
     app.secret_key = os.environ.get("VACUUMSESSIONKEY")

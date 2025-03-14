@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 export PRIVATE_SUBNET1="subnet-b387c598"
 export PRIVATE_SUBNET2="subnet-15189719"
 export VF_TARGET_GROUP_ARN="arn:aws:elasticloadbalancing:us-east-1:631538352062:targetgroup/vacuumflask-ecs-tg/a4c723ffb2f3beac"
