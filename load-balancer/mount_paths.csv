@@ -1,0 +1,3 @@
+local_path,container_path,description
+/home/colin/PycharmProjects/blog2/load-balancer/logs,/var/log/nginx/,capture nginx logs
+/home/colin/PycharmProjects/blog2/load-balancer/ssl/certs,/etc/nginx/ssl/,ssl certificates
