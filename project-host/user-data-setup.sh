@@ -1,9 +1,27 @@
 #!/bin/bash
 # Secret ARN
 SECRET_ARN="arn:aws:secretsmanager:us-east-1:631538352062:secret:vacuumflask-YmcOKn"
+export CONFIG_FILE="/opt/aws/amazon-cloudwatch-agent/etc/cloud-watch-config.json"
+export LOG_GROUP="vacuum-host"
+
 
 sudo yum update
 sudo yum upgrade -y
+sudo yum -y install amazon-cloudwatch-agent
+#configure cloudwatch
+
+aws s3 cp s3://internal.cmh.sh/config/cloud-watch-config.json cloudwatch-config.json
+# Stop the agent if it's running
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a stop
+
+# Apply the configuration and start the agent
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:cloudwatch-config.json
+
+# Enable the agent to start on boot
+sudo systemctl enable amazon-cloudwatch-agent
+sudo systemctl start amazon-cloudwatch-agent
+
+
 #Install EFS utils
 sudo yum install -y amazon-efs-utils
 #sudo apt-get -y install git binutils rustc cargo pkg-config libssl-dev gettext
@@ -14,8 +32,10 @@ sudo yum install -y amazon-efs-utils
 sudo yum -y install docker
 sudo yum -y install vim screen
 sudo yum -y install jq
+sudo yum -y install git
 sudo systemctl enable docker
 sudo systemctl start docker
+
 #sudo yum -y install boto3
 if [ ! -d /media/vacuum-data ]; then
   sudo mkdir /media/vacuum-data
@@ -26,26 +46,23 @@ sudo mount -a
 
 #docker start redis
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 631538352062.dkr.ecr.us-east-1.amazonaws.com
-sudo docker pull 631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.sh/vacuum_lb:latest
-sudo docker pull 631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.sh/apachesites:latest
-sudo sh /media/vacuum-data/run.sh
-bash /media/vacuum-data/update_internal_dns_auto.sh
-bash /media/vacuum-data/projectbox-run.sh
+#sudo docker pull 631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.sh/vacuum_lb:latest
+#sudo docker pull 631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.sh/apachesites:latest
+#sudo sh /media/vacuum-data/run.sh
+#bash /media/vacuum-data/update_internal_dns_auto.sh
+#bash /media/vacuum-data/projectbox-run.sh
+
+source /media/vacuum-data/update_internal_dns_auto.sh
 
 #Kubernetes related
+sudo curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 
-if [ -z K3S_URL ]; then
-  export K3S_URL=$(cat /media/vacuum-data/k3s/k3s_url)
-fi
-if [ -z K3S_TOKEN ]; then
-  export K3S_TOKEN=$(cat /media/vacuum-data/k3s/k3s_token)
-fi
-if [ -z postgres_server ]; then
-  export postgres_server=$(cat /media/vacuum-data/k3s/postgres_server)
-fi
-if [ -z postgres_port ]; then
-  export postgres_port=$(cat /media/vacuum-data/k3s/postgres_port)
-fi
+
+
+
+K3S_URL=$(cat /media/vacuum-data/k3s/k3s_url)
+K3S_TOKEN=$(cat /media/vacuum-data/k3s/k3s_token)
+
 # Get the secret value and store it in a variable
 secret_string=$(aws secretsmanager get-secret-value \
     --secret-id "$SECRET_ARN" \
@@ -53,21 +70,48 @@ secret_string=$(aws secretsmanager get-secret-value \
     --output text)
 # Parse the JSON and extract the values using jq
 # Note: You'll need to install jq if not already installed: sudo yum install -y jq
-export K3S_POSTGRES_USER=$(echo $secret_string | jq -r '.K3S_POSTGRES_USER')
-export K3S_POSTGRES_PASSWORD=$(echo $secret_string | jq -r '.K3S_POSTGRES_PASSWORD')
-export POSTGRESS_SERVER=$(echo $secret_string | jq -r '.POSTGRES_SERVER')
-
-if [ -z postgres_conn_k3s ]; then
-  con="mysql://$K3S_POSTGRES_USER:$K3S_POSTGRES_PASSWORD@tcp($POSTGRESS_SERVER:3306)/k3s"
-  export postgres_conn_k3s=${con}
-fi
+K3S_POSTGRES_USER=$(echo $secret_string | jq -r '.K3S_POSTGRES_USER')
+K3S_POSTGRES_PASSWORD=$(echo $secret_string | jq -r '.K3S_POSTGRES_PASSWORD')
+POSTGRESS_SERVER=$(echo $secret_string | jq -r '.POSTGRES_SERVER')
+con="mysql://$K3S_POSTGRES_USER:$K3S_POSTGRES_PASSWORD@tcp($POSTGRESS_SERVER:5432)/k3s"
+postgres_conn_k3s=${con}
+echo "postgres_conn_k3s is set to $postgres_conn_k3s"
+# Install k3s with PostgreSQL as the datastore
 curl -sfL https://get.k3s.io | sh -s - server \
-  --token=${K3S_TOKEN} \
+  --write-kubeconfig-mode=644
   --datastore-endpoint=${postgres_conn_k3s}
+#  --token=${K3S_TOKEN} \
+#  --tls-san=${K3S_URL} \
 
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-sudo yum -y install kubectl
+pwd=$(aws ecr get-login-password)
+echo $pwd | sudo docker login --username AWS --password-stdin 631538352062.dkr.ecr.us-east-1.amazonaws.com
+kubectl delete secret regcred --namespace=default
+# Create a secret named 'regcred' in your cluster
+kubectl create secret docker-registry regcred \
+  --docker-server=631538352062.dkr.ecr.us-east-1.amazonaws.com \
+  --docker-username=AWS \
+  --docker-password=${pwd} \
+  --namespace=default
 
+kubectl create secret tls colinhayes-tls \
+  --cert=/media/vacuum-data/vacuum-lb/ssl/wild.colinhayes.dev.25.pem \
+  --key=/media/vacuum-data/vacuum-lb/ssl/wild.colinhayes.dev.25.key \
+  --namespace=default
+
+kubectl create secret tls cmh-tls \
+  --cert=/media/vacuum-data/vacuum-lb/ssl/wild.cmh.sh.crt \
+  --key=/media/vacuum-data/vacuum-lb/ssl/wild.cmh.sh.key \
+  --namespace=default
+
+
+helm repo add traefik https://traefik.github.io/charts
+helm repo update
+helm install traefik traefik/traefik --namespace traefik --create-namespace
+kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.10/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+
+cd /media/vacuum-data/k3s
+source /media/vacuum-data/k3s/setup-all.sh prod
 
 #ECS related
 if [ -d /etc/ecs ]; then
@@ -76,4 +120,6 @@ if [ -d /etc/ecs ]; then
   #TODO: set hostname; set name in /etc/hosts
   #TODO: register with ALB.
 fi
+
+
 
