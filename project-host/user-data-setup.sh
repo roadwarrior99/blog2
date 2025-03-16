@@ -73,13 +73,25 @@ secret_string=$(aws secretsmanager get-secret-value \
 K3S_POSTGRES_USER=$(echo $secret_string | jq -r '.K3S_POSTGRES_USER')
 K3S_POSTGRES_PASSWORD=$(echo $secret_string | jq -r '.K3S_POSTGRES_PASSWORD')
 POSTGRESS_SERVER=$(echo $secret_string | jq -r '.POSTGRES_SERVER')
-con="mysql://$K3S_POSTGRES_USER:$K3S_POSTGRES_PASSWORD@tcp($POSTGRESS_SERVER:5432)/k3s"
+con="postgres://$K3S_POSTGRES_USER:$K3S_POSTGRES_PASSWORD@$POSTGRESS_SERVER:5432/kubernetes"
 postgres_conn_k3s=${con}
 echo "postgres_conn_k3s is set to $postgres_conn_k3s"
+
+# Download the RDS CA bundle
+curl -O https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+
+# For k3s configuration, you'll want to move it to a permanent location
+sudo mkdir -p /etc/kubernetes/pki/
+sudo mv global-bundle.pem /etc/kubernetes/pki/rds-ca.pem
+
+
 # Install k3s with PostgreSQL as the datastore
+#this is only if there isn't an existing k3s node
 curl -sfL https://get.k3s.io | sh -s - server \
-  --write-kubeconfig-mode=644
-  --datastore-endpoint=${postgres_conn_k3s}
+  --write-kubeconfig-mode=644 \
+  --datastore-endpoint=${postgres_conn_k3s} \
+  --log /var/log/k3s.log \
+  --datastore-cafile=/etc/kubernetes/pki/rds-ca.pem
 #  --token=${K3S_TOKEN} \
 #  --tls-san=${K3S_URL} \
 
