@@ -84,16 +84,69 @@ curl -O https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 sudo mkdir -p /etc/kubernetes/pki/
 sudo mv global-bundle.pem /etc/kubernetes/pki/rds-ca.pem
 
+#ECS related
+if [ -d /etc/ecs ]; then
+  echo "ECS_CLUSTER=vacuumflask_workers" > /etc/ecs/ecs.config
+  echo "ECS_BACKEND_HOST=" >> /etc/ecs/ecs.config
+  #TODO: set hostname; set name in /etc/hosts
+  #TODO: register with ALB.
+fi
 
-# Install k3s with PostgreSQL as the datastore
-#this is only if there isn't an existing k3s node
-curl -sfL https://get.k3s.io | sh -s - server \
-  --write-kubeconfig-mode=644 \
-  --datastore-endpoint=${postgres_conn_k3s} \
-  --log /var/log/k3s.log \
-  --datastore-cafile=/etc/kubernetes/pki/rds-ca.pem
-#  --token=${K3S_TOKEN} \
-#  --tls-san=${K3S_URL} \
+MAX_ATTEMPTS=60  # 5 minutes maximum wait time
+ATTEMPT=0
+API_URL="https://vacuumhost1.internal.cmh.sh:6443"
+
+# Check if a k3s node is already online
+response=$(curl -s -o /dev/null -w "%{http_code}" \
+  --connect-timeout 5 \
+  --max-time 10 \
+  --insecure \
+  "$API_URL")
+if [ $? -eq 0 ] && [ "$response" -eq 401 ]; then
+  curl -sfL https://get.k3s.io | sh -s - server \
+    --token=${K3S_TOKEN} \
+    --datastore-endpoint=${postgres_conn_k3s} \
+    --log /var/log/k3s.log \
+    --tls-san=${API_URL} 
+else
+  # Install k3s with PostgreSQL as the datastore
+  #this is only if there isn't an existing k3s node
+  curl -sfL https://get.k3s.io | sh -s - server \
+    --write-kubeconfig-mode=644 \
+    --datastore-endpoint=${postgres_conn_k3s} \
+    --log /var/log/k3s.log \
+    --datastore-cafile=/etc/kubernetes/pki/rds-ca.pem \
+    --token=${K3S_TOKEN} \
+  #  --tls-san=${K3S_URL} \
+fi
+
+
+
+
+echo "Waiting for k3s API server to start at $API_URL..."
+
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+    # Perform curl with timeout and silent mode
+    response=$(curl -s -o /dev/null -w "%{http_code}" \
+        --connect-timeout 5 \
+        --max-time 10 \
+        --insecure \
+        "$API_URL")
+    
+    if [ $? -eq 0 ] && [ "$response" -eq 401 ]; then
+        echo "K3s API server is ready!"
+        break;
+    else
+        ATTEMPT=$((ATTEMPT + 1))
+        remaining=$((MAX_ATTEMPTS - ATTEMPT))
+        echo "Waiting... (got response code: $response, attempts remaining: $remaining)"
+        sleep 5
+    fi
+done
+if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+    echo "K3s API server did not start in time. Exiting."
+    exit 1
+fi
 
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 pwd=$(aws ecr get-login-password)
@@ -125,13 +178,6 @@ kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.10/docs/co
 cd /media/vacuum-data/k3s
 source /media/vacuum-data/k3s/setup-all.sh prod
 
-#ECS related
-if [ -d /etc/ecs ]; then
-  echo "ECS_CLUSTER=vacuumflask_workers" > /etc/ecs/ecs.config
-  echo "ECS_BACKEND_HOST=" >> /etc/ecs/ecs.config
-  #TODO: set hostname; set name in /etc/hosts
-  #TODO: register with ALB.
-fi
 
 
 
