@@ -49,3 +49,6 @@ fi
 aws s3 cp user-data-setup.sh s3://internal.cmh.sh/config/user-data-setup.sh --profile vacuum
 ssh project -t "sudo aws s3 cp s3://internal.cmh.sh/config/user-data-setup.sh /media/vacuum-data/user-data-setup.sh && sudo chmod +x /media/vacuum-data/user-data-setup.sh"
 echo "Successfully set version $NEW_VERSION as default"
+
+updated=$(date)
+echo "Updated launch template $TEMPLATE_ID to version $NEW_VERSION on $updated"
