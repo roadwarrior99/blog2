@@ -39,7 +39,8 @@ public_ips=$(awk '{print $2}' working/vacuumhosts.txt ) #
     echo "IP JSON: $ip_json"
 
 while read -r PublicIpAddress dnsname zoneid; do
-    if [ "$PublicIpAddress" != "$public_ips" ]; then
+    ipfound=$(echo "$public_ips" | grep "$PublicIpAddress")
+    if [ -z "$ipfound" ]; then
     
         echo "Updating $dnsname to $PublicIpAddress"
         result=$(aws route53 change-resource-record-sets \

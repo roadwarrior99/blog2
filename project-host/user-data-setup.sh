@@ -57,7 +57,8 @@ source /media/vacuum-data/update_internal_dns_auto.sh
 #Kubernetes related
 sudo curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 
-
+mkdir /tmp/working
+chmod 777 /tmp/working
 
 
 K3S_URL=$(cat /media/vacuum-data/k3s/k3s_url)

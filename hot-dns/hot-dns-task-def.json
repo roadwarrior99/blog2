@@ -1,0 +1,38 @@
+{
+    "family": "hot-dns",
+    "taskRoleArn": "arn:aws:iam::631538352062:role/service-role/Amazon_EventBridge_Scheduler_ECS_f94599ff4d-hotdns",
+    "containerDefinitions": [
+      {
+        "name": "hot-dns",
+        "image": "631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.sh/hot-dns:latest",
+        "memoryReservation": 512,
+        "cpu": 256,
+        "essential": true,
+        "mountPoints": [
+          {
+            "sourceVolume": "working-storage",
+            "containerPath": "/var/tmp/working",
+            "readOnly": false
+          }
+        ],
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "/ecs/hot-dns",
+            "awslogs-region": "us-east-1",
+            "awslogs-stream-prefix": "hot-dns"
+          }
+        }
+      }
+
+    ],
+    "volumes": [
+      {
+        "name": "working-storage",
+        "host": {
+            "sourcePath": "/var/tmp/working"
+        }
+      }
+    ]
+  }
+  
