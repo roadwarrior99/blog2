@@ -14,7 +14,7 @@
     "containerDefinitions": [
         {
             "name": "vacuumflask",
-            "image": "631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.sh:vacuumflask",
+            "image": "631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.sh/vacuumflask:20250308122731",
             "portMappings": [
                 {
                     "name": "vacuumflask",
@@ -38,7 +38,7 @@
                     "value": "internal.cmh.sh"
                 },{
                     "name": "REDIS_SERVER",
-                    "value": "redis://172.31.92.117:6379"
+                    "value": "rediss://vacuum-flask-valkey-serverless-gr8jjy.serverless.use1.cache.amazonaws.com:6379"
                 },{
                     "name": "AWS_CONFIG_FILE",
                     "value": "/tmp/data/aws_config"

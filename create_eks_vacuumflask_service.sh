@@ -1,9 +1,9 @@
 #!/bin/bash
 . ./create_eks_vacuumflask_env.sh
-aws ecs create-service  --cluster vacuumflask_workers \
+aws ecs create-service  --cluster vacuum-flask \
   --service-name vacuumflask  \
   --task-definition vacuumflask_workers \
-  --desired-count 1  --launch-type EC2  \
+  --desired-count 1  --launch-type FARGATE  \
   --profile vacuum --region us-east-1 \
   --network-configuration "awsvpcConfiguration={subnets=[${PRIVATE_SUBNET1},${PRIVATE_SUBNET2}],securityGroups=[${VF_SG_ID}],assignPublicIp=DISABLED}" \
   #--load-balancers targetGroupArn=${VF_TARGET_GROUP_ARN},containerName=vacuumflask,containerPort=8080,loadBalancerName=vacuumflask-ecs-nlb
