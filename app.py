@@ -514,6 +514,7 @@ def okta_auth_callback():
     state = request.args.get('state')
     logger.info(f"Code from okta: {code} and state {state}")
     if state == session['app_state']:
+        logger.info("State from OKTA matches session state.")
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
         code = request.args.get("code")
         app_state = request.args.get("state")
@@ -525,7 +526,7 @@ def okta_auth_callback():
             return render_template("authissue.html", code=402)
         query_params = {'grant_type': 'authorization_code',
                         'code': code,
-                        'redirect_uri': request.base_url,
+                        'redirect_uri': os.environ.get('OKTA_LOCAL_REDIRECT_URL'),
                         'code_verifier': session['code_verifier'],
                         }
         query_params = requests.compat.urlencode(query_params)
@@ -538,7 +539,9 @@ def okta_auth_callback():
 
         # Get tokens and validate
         if not exchange.get("token_type"):
-            return "Unsupported token type. Should be 'Bearer'.", 403
+            logger.error("Unsupported token type. Should be 'Bearer'.")
+            logger.info(f"Token response: {exchange}")
+            return render_template("authissue.html", code=403)
         access_token = exchange["access_token"]
         id_token = exchange["id_token"]
 
