@@ -580,7 +580,7 @@ def okta_auth_redirect():
 
     code_challenge = encoded.decode('ascii').strip('=')
     query_params = {'client_id': os.environ['OKTA_CLIENT_ID'],
-                    'redirect_uri': "http://127.0.0.1:5000/login/oauth2/code/okta",
+                    'redirect_uri': os.getenv('OKTA_LOCAL_REDIRECT_URL'),
                     'scope': "openid email profile offline_access",
                     'state': app_state,
                     'code_challenge': code_challenge,
