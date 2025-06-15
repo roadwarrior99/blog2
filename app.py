@@ -1,7 +1,9 @@
 from crypt import methods
 
 import flask
-from flask import Flask, request, Blueprint, render_template, make_response
+import flask_session
+from flask import Flask, request, Blueprint, render_template, make_response,redirect,session
+#from flask import session as login_session
 import sqlite3
 import yaml
 from flask_login import login_required, current_user
@@ -15,7 +17,7 @@ import hash
 import logging
 import datetime
 import redis
-from flask_session import Session
+#from flask_session import Session
 import os
 import flask_login
 import objects
@@ -31,8 +33,15 @@ from watchtower import CloudWatchLogHandler
 import platform
 import datetime
 
+#okta related
+import hashlib
+import base64
+import requests
+import secrets
+
+
 load_dotenv()
-secrets=dict()
+secrets_dict=dict()
 
 app = Flask(__name__)
 timeobj = datetime.datetime.now()
@@ -59,7 +68,7 @@ secmgrclient = boto3.client('secretsmanager', region_name=os.environ.get("AWS_RE
 secResponse = secmgrclient.get_secret_value(SecretId=os.environ.get("AWS_SECRET_ID"))
 logger.info("AWS Secrets manager response: {0}".format(secResponse["ResponseMetadata"]["HTTPStatusCode"]))
 if secResponse['SecretString']:
-    secrets = json.loads(secResponse['SecretString'])
+    secrets_dict = json.loads(secResponse['SecretString'])
     logger.info("AWS Secrets manager secrets have been loaded.")
 
 ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'mov', 'webm', 'mp4', 'zip']
@@ -67,12 +76,12 @@ ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'mov', 'webm', 'mp4', 'zip']
 if os.environ.get("VACUUMSESSIONKEY"):
     app.secret_key = os.environ.get("VACUUMSESSIONKEY")
 else:
-    app.secret_key = secrets['VACUUMSESSIONKEY']
+    app.secret_key = secrets_dict['VACUUMSESSIONKEY']
 
 sec_keys = ["OTS_SECRET", "VACUUMROOTUSER", "VACUUMROOTHASH", "VACUUMSALT", "VACUUMAPIKEYSALT"]
 for key in sec_keys:
     if os.environ.get(key):
-        secrets[key] = os.environ.get(key)
+        secrets_dict[key] = os.environ.get(key)
         logger.info(f"Local environment variable {key} found, overriding secrets manager value.")
 
 internal_bucket = os.environ.get("INTERNAL_BUCKET_NAME")
@@ -89,14 +98,14 @@ ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
 good_list = "data/goodlist.txt"
 #s3_content = list_files()
 
-server_session = Session(app)
+#server_session = session(app)
 
 
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    user = objects.User(user_id, secrets['VACUUMAPIKEYSALT'], secrets['VACUUMSALT'])
+    user = objects.User(user_id, secrets_dict['VACUUMAPIKEYSALT'], secrets_dict['VACUUMSALT'])
     return user
 
 @app.route('/login', methods=['GET'])
@@ -113,22 +122,22 @@ def login_post():
     otpin = request.form.get('otp')
     logger.info("User:{0} tries to log in.".format(username))
     if username and password and otpin:
-        pwdHashed = hash.hash(password, secrets["VACUUMSALT"])
-        totp = pyotp.TOTP(secrets['OTS_SECRET'])
+        pwdHashed = hash.hash(password, secrets_dict["VACUUMSALT"])
+        totp = pyotp.TOTP(secrets_dict['OTS_SECRET'])
         otpValid = totp.verify(otpin)
         #logger.warning("User: {0} with password:'{1}'".format(username, pwdHashed))
         #logger.warning("root user: {0} with hash:{1}".format(os.environ.get('VACUUMROOTUSER'), os.environ.get('VACUUMROOTHASH')))
-        if pwdHashed == secrets['VACUUMROOTHASH']  \
-            and username == secrets['VACUUMROOTUSER'] \
+        if pwdHashed == secrets_dict['VACUUMROOTHASH']  \
+            and username == secrets_dict['VACUUMROOTUSER'] \
             and otpValid:
             my_user = objects.User(username)
             flask_login.login_user(my_user)
             logger.info("Admin User Logged In.")
             return render_template("loginmenu.html")
         else:
-            if username == secrets['VACUUMROOTUSER']:
+            if username == secrets_dict['VACUUMROOTUSER']:
                 logger.info("Admin username matched")
-            if pwdHashed == secrets['VACUUMROOTHASH']:
+            if pwdHashed == secrets_dict['VACUUMROOTHASH']:
                 logger.info("pwd matched")
             if otpValid:
                 logger.info("OTP provided is Valid")
@@ -496,6 +505,96 @@ def get_tags():
                 "max_count": max_count}
 
     return json.dumps(tags_obj), 200, {'ContentType': 'application/json'}
+
+
+@app.route('/login/oauth2/code/okta')
+def okta_auth_callback():
+    logger.info("OKTA called back.")
+    code = request.args.get('code')
+    state = request.args.get('state')
+    logger.info(f"Code from okta: {code} and state {state}")
+    if state == session['app_state']:
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        code = request.args.get("code")
+        app_state = request.args.get("state")
+        if app_state != session['app_state']:
+            logger.error( "The app state does not match")
+            return render_template("authissue.html", code=402)
+        if not code:
+            logger.error("The code was not returned or is not accessible")
+            return render_template("authissue.html", code=402)
+        query_params = {'grant_type': 'authorization_code',
+                        'code': code,
+                        'redirect_uri': request.base_url,
+                        'code_verifier': session['code_verifier'],
+                        }
+        query_params = requests.compat.urlencode(query_params)
+        exchange = requests.post(
+            os.environ['OKTA_AUTH_REDIRECT_URL'] + "oauth2/default/v1/token",
+            headers=headers,
+            data=query_params,
+            auth=(os.environ['OKTA_CLIENT_ID'], os.environ['OKTA_CLIENT_SECRET']),
+        ).json()
+
+        # Get tokens and validate
+        if not exchange.get("token_type"):
+            return "Unsupported token type. Should be 'Bearer'.", 403
+        access_token = exchange["access_token"]
+        id_token = exchange["id_token"]
+
+        # Authorization flow successful, get userinfo and login user
+        userinfo_response = requests.get(os.environ['OKTA_AUTH_REDIRECT_URL'] + "oauth2/default/v1/userinfo",
+                                         headers={'Authorization': f'Bearer {access_token}'}).json()
+
+        unique_id = userinfo_response["sub"]
+        #user_email = userinfo_response["email"]
+        #user_name = userinfo_response["given_name"]
+
+        my_user = objects.User(unique_id)
+        flask_login.login_user(my_user)
+        logger.info("Admin User Logged In.")
+        return render_template("loginmenu.html")
+    else:
+        logger.error("The state does not match")
+        logger.info(f"State vs State okta state: {state} and session state {session['app_state']}")
+        return render_template("authissue.html", code=402)
+
+
+@app.route('/login-okta', methods=['GET'])
+def okta_auth_redirect():
+    okta_auth_redirect_url = os.environ.get("OKTA_AUTH_REDIRECT_URL")
+    # get request params
+    # store app state and code verifier in session
+    app_state = secrets.token_urlsafe(64)
+    code_verifier = secrets.token_urlsafe(64)
+    session['app_state'] = app_state
+    logger.info(f"app_state: {app_state}")
+    logger.info(f"urlsafe app_date: {session['app_state']}")
+    session['code_verifier'] = code_verifier
+    rsp = flask.wrappers.Response()
+    app.session_interface.save_session(app,session, response=rsp)
+    logger.info(f"session save response: {rsp.status_code}")
+    # calculate code challenge
+    hashed = hashlib.sha256(code_verifier.encode('ascii')).digest()
+    encoded = base64.urlsafe_b64encode(hashed)
+
+    code_challenge = encoded.decode('ascii').strip('=')
+    query_params = {'client_id': os.environ['OKTA_CLIENT_ID'],
+                    'redirect_uri': "http://127.0.0.1:5000/login/oauth2/code/okta",
+                    'scope': "openid email profile offline_access",
+                    'state': app_state,
+                    'code_challenge': code_challenge,
+                    'code_challenge_method': 'S256',
+                    'response_type': 'code',
+                    'response_mode': 'query'}
+    # build request_uri
+    request_uri = "{base_url}?{query_params}".format(
+        base_url=os.environ['OKTA_AUTH_REDIRECT_URL'] + "oauth2/default/v1/authorize",
+        query_params=requests.compat.urlencode(query_params)
+    )
+    logger.info("OKTA request uri: {0}".format(request_uri))
+    return redirect(request_uri)
+
 @app.route('/new', methods=['GET'])
 @flask_login.login_required
 def get_new_post():

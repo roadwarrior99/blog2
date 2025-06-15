@@ -13,3 +13,5 @@ redis
 flask_session
 watchtower
 pyotp
+okta
+requests
