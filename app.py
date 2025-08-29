@@ -385,9 +385,10 @@ def public_content_gallery():
 
     return render_template("public_gallery.html", contents=s3_content, filetypes=notvideofiles)
 
-@app.route("/public_content/content/<string:Key>", methods=['GET'])
+@app.route("/public_content/content/<path:Key>", methods=['GET'])
 @flask_login.login_required
 def public_content_content(Key):
+    logger.info(f"Public Content Content Processing request for {Key}")
     s3_content = list_files()
     if Key in s3_content.keys():
         return render_template("public_content_item.html", item=s3_content[Key])
