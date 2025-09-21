@@ -2,6 +2,16 @@
 set tagname=%1
 set version=%2
 set logfile=winbuild_%date:~-4,4%%date:~-10,2%%date:~-7,2%_%time:~0,2%%time:~3,2%%time:~6,2%.log
+
+# Make sure the clock is right before we continue.
+echo [%date% %time%] Disabling automatic time sync >> %logfile%
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" /v Type /t REG_SZ /d NoSync /f >> %logfile% 2>&1
+net stop w32time >> %logfile% 2>&1
+net start w32time >> %logfile% 2>&1
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" /v Type /t REG_SZ /d NTP /f >> %logfile% 2>&1
+net stop w32time >> %logfile% 2>&1
+net start w32time >> %logfile% 2>&1
+
 git pull >> %logfile%
 echo [%date% %time%] Starting build for %tagname%:%version% >> %logfile%
 
@@ -43,5 +53,8 @@ docker tag %tagname%:%version% 631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.
 
 echo [%date% %time%] Pushing image to ECR >> %logfile%
 docker push 631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.sh/%tagname%:%version% >> %logfile% 2>&1
+
+echo [%date% %time%] Re-enabling automatic time sync >> %logfile%
+
 
 echo [%date% %time%] Build process completed >> %logfile%
