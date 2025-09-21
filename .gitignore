@@ -15,3 +15,7 @@ create_eks_vacuumflask_env.sh
 load-balancer/ssl/*
 data/aws_credentials
 .DS_Store
+.vscode/
+.vscode/*
+data/*.log
+
