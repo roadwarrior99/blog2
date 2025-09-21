@@ -7,6 +7,16 @@
           {% endif %}
         <h3>Public CDN Content</h3>
         <a href="{{ url_for("public_content_gallery") }}">Gallery</a><br/>
+        
+        <!-- Folder Management -->
+        <div>
+          <h3>Create Folder:</h3>
+          <form method="POST" action="/public_content/create_folder">
+            <input type="text" name="folder_name" placeholder="Folder name" required>
+            <input type="submit" value="Create Folder">
+          </form>
+        </div>
+
         <div>
           <h3>Upload your file here:</h3>
           <form method="POST" action="/public_content" enctype=multipart/form-data>
@@ -29,35 +39,95 @@
               </label>
           </form>
         </div>
+
+        <!-- Bulk Actions -->
+        <div>
+          <h3>Bulk Actions:</h3>
+          <form id="bulkForm" method="POST" action="/public_content/bulk_action">
+            <select name="action" required>
+              <option value="">Select Action</option>
+              <option value="move">Move to Folder</option>
+              <option value="delete">Delete</option>
+            </select>
+            <input type="text" name="target_folder" placeholder="Target folder (for move)" style="display:none;" id="targetFolder">
+            <input type="submit" value="Execute" onclick="return confirmBulkAction()">
+          </form>
+        </div>
+
         <div>
           <h3>These are your uploaded files:</h3>
-          <p>Click on the filename to view the object.</p>
+          <p>Click on the filename to view the object. Use checkboxes for bulk actions.</p>
+          
+          <!-- Select All -->
+          <label>
+            <input type="checkbox" id="selectAll" onchange="toggleAll()"> Select All
+          </label>
+          
           <ul>
             {% for Key, obj in contents.items() %}
               <li class="linkcollectionli">
-                <a href="{{ url_for("public_content_content", Key=Key) }}"> {{ obj.Key }} </a>
-                <span class="publink">https://pub.cmh.sh/{{ Key }}</span>
-                <span class="copylink" onclick="copyToClipboard('https://pub.cmh.sh/{{ Key }}')">Copy URL</span>
+                <input type="checkbox" name="selected_files" value="{{ Key }}" form="bulkForm">
+                {% if Key.endswith('/') %}
+                  <strong>📁 {{ Key }}</strong>
+                  <button onclick="deleteFolder('{{ Key }}')">Delete Folder</button>
+                {% else %}
+                  <a href="{{ url_for("public_content_content", Key=Key) }}"> {{ obj.Key }} </a>
+                  <span class="publink">https://pub.cmh.sh/{{ Key }}</span>
+                  <span class="copylink" onclick="copyToClipboard('https://pub.cmh.sh/{{ Key }}')">Copy URL</span>
+                {% endif %}
               </li>
             {% endfor %}
           </ul>
         </div>
+    </div>
+
     <script>
       function copyToClipboard(text) {
-        // Create a temporary input element to hold the text
         const tempInput = document.createElement('input');
         tempInput.value = text;
         document.body.appendChild(tempInput);
-
-        // Select the text and copy it to the clipboard
         tempInput.select();
         document.execCommand('copy');
-
-        // Remove the temporary input element
         document.body.removeChild(tempInput);
-
-        // Optionally, notify the user that the link has been copied
         alert('Copied to clipboard: ' + text);
       }
-</script>
+
+      function toggleAll() {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('input[name="selected_files"]');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+      }
+
+      function confirmBulkAction() {
+        const selected = document.querySelectorAll('input[name="selected_files"]:checked');
+        if (selected.length === 0) {
+          alert('Please select at least one file');
+          return false;
+        }
+        const action = document.querySelector('select[name="action"]').value;
+        return confirm(`Are you sure you want to ${action} ${selected.length} file(s)?`);
+      }
+
+      function deleteFolder(folderName) {
+        if (confirm(`Are you sure you want to delete folder "${folderName}"?`)) {
+          fetch('/public_content/delete_folder', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'folder_name=' + encodeURIComponent(folderName)
+          }).then(() => location.reload());
+        }
+      }
+
+      // Show/hide target folder input based on action
+      document.querySelector('select[name="action"]').addEventListener('change', function() {
+        const targetFolder = document.getElementById('targetFolder');
+        if (this.value === 'move') {
+          targetFolder.style.display = 'inline';
+          targetFolder.required = true;
+        } else {
+          targetFolder.style.display = 'none';
+          targetFolder.required = false;
+        }
+      });
+    </script>
 {% endblock %}

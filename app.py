@@ -25,6 +25,7 @@ from flask_ipban import IpBan
 from s3_management import list_files
 from s3_management import mv_file
 from s3_management import s3_upload_file
+from s3_management import create_folder
 import boto3
 from s3_management import s3_remove_file
 from dotenv import load_dotenv
@@ -370,6 +371,50 @@ def public_content():
     #if s3_content and len(s3_content) == 0:
     s3_content = list_files()
     return render_template("public_content.html", contents=s3_content)
+
+@app.route('/public_content/create_folder', methods=['POST'])
+@flask_login.login_required
+def create_folder_route():
+    folder_name = request.form.get('folder_name')
+    if folder_name:
+        create_folder(folder_name)
+        logger.info(f"Created folder: {folder_name}")
+    return redirect('/public_content')
+
+@app.route('/public_content/delete_folder', methods=['POST'])
+@flask_login.login_required
+def delete_folder():
+    folder_name = request.form.get('folder_name')
+    if folder_name:
+        s3_remove_file(folder_name)
+        logger.info(f"Deleted folder: {folder_name}")
+    return redirect('/public_content')
+
+@app.route('/public_content/bulk_action', methods=['POST'])
+@flask_login.login_required
+def bulk_action():
+    action = request.form.get('action')
+    selected_files = request.form.getlist('selected_files')
+    
+    if not selected_files:
+        return redirect('/public_content')
+    
+    if action == 'delete':
+        for file_key in selected_files:
+            s3_remove_file(file_key)
+            logger.info(f"Bulk deleted: {file_key}")
+    
+    elif action == 'move':
+        target_folder = request.form.get('target_folder')
+        if target_folder:
+            if not target_folder.endswith('/'):
+                target_folder += '/'
+            for file_key in selected_files:
+                new_key = target_folder + file_key.split('/')[-1]
+                mv_file(file_key, new_key)
+                logger.info(f"Moved {file_key} to {new_key}")
+    
+    return redirect('/public_content')
 
 @app.route('/public_content/gallery', methods=['GET'])
 @flask_login.login_required
