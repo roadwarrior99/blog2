@@ -2,7 +2,7 @@
 set tagname=%1
 set version=%2
 set logfile=winbuild_%date:~-4,4%%date:~-10,2%%date:~-7,2%_%time:~0,2%%time:~3,2%%time:~6,2%.log
-
+git pull >> %logfile%
 echo [%date% %time%] Starting build for %tagname%:%version% >> %logfile%
 
 if "%tagname%"=="" (
@@ -16,6 +16,9 @@ if "%version%"=="" (
     echo [%date% %time%] ERROR: Missing version parameter >> %logfile%
     exit /b 1
 )
+
+echo [%date% %time%] Syncing system time >> %logfile%
+w32tm /resync >> %logfile% 2>&1
 
 echo [%date% %time%] Starting docker build >> %logfile%
 docker build --tag %tagname%:%version% --tag %tagname%:latest . >> %logfile% 2>&1

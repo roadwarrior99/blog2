@@ -2,7 +2,7 @@
 # Build script for building on Win10VM2
 tagname="vacuumflask"
 version=$(date +"%Y%m%d%H%M%S")
-ssh win10vm2 "f:; cd blog2; git pull; winbuild.bat $tagname $version"
+ssh win10vm2 "f:; cd blog2; winbuild.bat $tagname $version"
 #echo ""
 #buildcmd="docker build --tag $tagname:$version --tag $tagname:latest"
 #ssh win10vm2 "$buildcmd"
