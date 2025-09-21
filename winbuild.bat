@@ -3,7 +3,7 @@ set tagname=%1
 set version=%2
 set logfile=winbuild_%date:~-4,4%%date:~-10,2%%date:~-7,2%_%time:~0,2%%time:~3,2%%time:~6,2%.log
 
-# Make sure the clock is right before we continue.
+REM Make sure the clock is right before we continue.
 echo [%date% %time%] Disabling automatic time sync >> %logfile%
 reg add "HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" /v Type /t REG_SZ /d NoSync /f >> %logfile% 2>&1
 net stop w32time >> %logfile% 2>&1
