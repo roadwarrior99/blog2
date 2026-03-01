@@ -26,3 +26,5 @@ aws cloudfront create-invalidation \
   --output table
 
 echo "Done. https://$BUCKET/"
+
+date
