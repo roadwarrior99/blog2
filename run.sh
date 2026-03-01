@@ -6,5 +6,6 @@ docker run --env-file /media/vacuum-data/.env \
 	--volume /media/vacuum-data/templates:/tmp/templates \
 	--volume /media/vacuum-data/static:/tmp/static \
 	--network="host" \
+	--user 1000 \
 	-e AWS_REGION=US-EAST-1 \
 	-td "$imageid"

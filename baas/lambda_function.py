@@ -362,4 +362,15 @@ def presign_upload():
 @logger.inject_lambda_context
 def lambda_handler(event, context):
     logger.info(event)
+    if event.get("requestContext", {}).get("http", {}).get("method") == "OPTIONS":
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "https://baas.cmh.sh",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+                "Access-Control-Allow-Headers": "authorization,content-type",
+                "Access-Control-Max-Age": "300",
+            },
+            "body": "",
+        }
     return app.resolve(event, context)
