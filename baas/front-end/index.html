@@ -191,6 +191,49 @@
 
     .loading-block { text-align: center; padding: 40px; color: #777; }
 
+    /* --- Media grid --- */
+    .media-grid-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 14px;
+      margin-top: 10px;
+    }
+    .media-card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .media-thumb {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #e8f0fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.8rem;
+      color: #a0b8d8;
+      overflow: hidden;
+    }
+    .media-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .media-info { padding: 8px; flex: 1; display: flex; flex-direction: column; }
+    .media-name {
+      font-size: 0.77rem;
+      font-weight: bold;
+      word-break: break-all;
+      line-height: 1.3;
+      margin-bottom: 3px;
+      color: #333;
+    }
+    .media-meta { font-size: 0.72rem; color: #888; margin-bottom: 6px; flex: 1; }
+    .media-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+
     /* --- Misc --- */
     .section-title { color: #005f99; margin-bottom: 14px; font-size: 1.3rem; }
     .empty-state { text-align: center; padding: 40px; color: #999; font-size: 1rem; }
@@ -256,6 +299,7 @@
       <h2 class="section-title" style="margin:0">Admin — Posts</h2>
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary btn-sm" onclick="navigate('editor')">+ New Post</button>
+        <button class="btn btn-secondary btn-sm" onclick="navigate('media')">Media</button>
         <button class="btn btn-secondary btn-sm" onclick="navigate('upload')">Upload File</button>
       </div>
     </div>
@@ -285,6 +329,20 @@
         </div>
       </form>
     </div>
+  </div>
+
+  <!-- Media library -->
+  <div id="view-media" class="view">
+    <div class="admin-toolbar">
+      <h2 class="section-title" style="margin:0">Media Library</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="promptCreateFolder()">+ Folder</button>
+        <button class="btn btn-primary btn-sm" onclick="navigate('upload')">&#8593; Upload</button>
+        <button class="btn btn-secondary btn-sm" onclick="navigate('admin')">&#8592; Posts</button>
+      </div>
+    </div>
+    <div id="media-alert" style="margin-top:10px"></div>
+    <div id="media-grid"><div class="loading-block"><span class="spinner"></span> Loading&hellip;</div></div>
   </div>
 
   <!-- File upload -->
@@ -327,6 +385,7 @@
 <script>
 // ─── Configuration ────────────────────────────────────────────────────────────
 const API_BASE = 'https://spaceapi.cmh.sh/baas';
+const CDN_URL  = 'https://pub.cmh.sh';  // CloudFront / S3 public URL for CDN bucket
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let currentView = null;
@@ -380,6 +439,7 @@ function navigate(view, params = {}) {
   if (view === 'admin')  { if (!isLoggedIn()) { navigate('login'); return; } loadAdminPosts(); }
   if (view === 'editor') { if (!isLoggedIn()) { navigate('login'); return; } setupEditor(params.id || null); }
   if (view === 'upload') { if (!isLoggedIn()) { navigate('login'); return; } resetUpload(); }
+  if (view === 'media')  { if (!isLoggedIn()) { navigate('login'); return; } loadMedia(); }
 }
 
 function renderNav() {
@@ -390,6 +450,7 @@ function renderNav() {
     nav.innerHTML = `
       <span class="token-info">Token expires ${hhmm}</span>
       <a onclick="navigate('admin')">Admin</a>
+      <a onclick="navigate('media')">Media</a>
       <button onclick="logout()">Logout</button>`;
   } else {
     nav.innerHTML = `<a onclick="navigate('login')">Login</a>`;
@@ -731,6 +792,117 @@ async function startUpload() {
     showAlert('upload-alert', `Upload failed: ${err.message}`, 'error');
     bar.value = 0;
     btn.disabled = false;
+  }
+}
+
+// ─── Media library ────────────────────────────────────────────────────────────
+const IMAGE_EXTS = new Set(['png','jpg','jpeg','gif','webp']);
+const VIDEO_EXTS = new Set(['mp4','mov','webm']);
+
+function fmtSize(bytes) {
+  if (bytes < 1024)        return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+async function loadMedia() {
+  const el = document.getElementById('media-grid');
+  el.innerHTML = '<div class="loading-block"><span class="spinner"></span> Loading&hellip;</div>';
+  hideAlert('media-alert');
+
+  const { ok, data } = await api('GET', '/uploads');
+  if (!ok) {
+    el.innerHTML = `<div class="alert alert-error">Failed to load media: ${escHtml(data.error || '')}</div>`;
+    return;
+  }
+
+  const items = Object.values(data).sort((a, b) => {
+    const af = a.Key.endsWith('/'), bf = b.Key.endsWith('/');
+    if (af !== bf) return af ? -1 : 1;
+    return a.Key.localeCompare(b.Key);
+  });
+
+  if (!items.length) {
+    el.innerHTML = '<div class="empty-state">No files found. Upload something!</div>';
+    return;
+  }
+  el.innerHTML = `<div class="media-grid-container">${items.map(buildMediaCard).join('')}</div>`;
+}
+
+function buildMediaCard(item) {
+  const key      = item.Key;
+  const isFolder = key.endsWith('/');
+  const ext      = item.fileext || '';
+  const isImage  = IMAGE_EXTS.has(ext);
+  const isVideo  = VIDEO_EXTS.has(ext);
+  const shortName = key.split('/').filter(Boolean).pop() || key;
+  const qKey     = JSON.stringify(key);
+  const cdnHref  = escHtml(CDN_URL + '/' + key);
+
+  let thumb;
+  if (isFolder)      thumb = `<div class="media-thumb">&#128193;</div>`;
+  else if (isImage)  thumb = `<div class="media-thumb"><img src="${cdnHref}" alt="${escHtml(shortName)}" loading="lazy" onerror="this.parentElement.innerHTML='&#128444;'"></div>`;
+  else if (isVideo)  thumb = `<div class="media-thumb">&#127916;</div>`;
+  else if (ext==='zip') thumb = `<div class="media-thumb">&#128476;</div>`;
+  else               thumb = `<div class="media-thumb">&#128196;</div>`;
+
+  const meta    = isFolder ? 'Folder' : fmtSize(item.Size);
+  const openBtn = isFolder ? '' : `<a href="${cdnHref}" target="_blank" class="btn btn-secondary btn-sm" title="Open">&#8599;</a>`;
+  const copyBtn = isFolder ? '' : `<button class="btn btn-secondary btn-sm" onclick="copyUrl(${qKey})" title="Copy URL">&#128279;</button>`;
+
+  return `
+    <div class="media-card">
+      ${thumb}
+      <div class="media-info">
+        <div class="media-name" title="${escHtml(key)}">${escHtml(shortName)}</div>
+        <div class="media-meta">${escHtml(meta)}</div>
+        <div class="media-actions">
+          ${openBtn}${copyBtn}
+          <button class="btn btn-secondary btn-sm" onclick="promptRename(${qKey})" title="Rename">&#9998;</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteUploadFile(${qKey})" title="Delete">&times;</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function copyUrl(key) {
+  navigator.clipboard.writeText(CDN_URL + '/' + key)
+    .then(() => showAlert('media-alert', 'URL copied to clipboard.', 'success'))
+    .catch(() => showAlert('media-alert', CDN_URL + '/' + key, 'info'));
+}
+
+async function deleteUploadFile(key) {
+  if (!confirm(`Delete "${key}"?\nThis cannot be undone.`)) return;
+  const { ok, data } = await api('DELETE', `/uploads?key=${encodeURIComponent(key)}`);
+  if (ok) {
+    showAlert('media-alert', `Deleted "${key}".`, 'success');
+    loadMedia();
+  } else {
+    showAlert('media-alert', data.error || 'Delete failed', 'error');
+  }
+}
+
+async function promptRename(key) {
+  const newKey = prompt(`Rename to:`, key);
+  if (!newKey || newKey === key) return;
+  const { ok, data } = await api('POST', '/uploads/move', { old_key: key, new_key: newKey });
+  if (ok) {
+    showAlert('media-alert', `Renamed to "${newKey}".`, 'success');
+    loadMedia();
+  } else {
+    showAlert('media-alert', data.error || 'Rename failed', 'error');
+  }
+}
+
+async function promptCreateFolder() {
+  const name = prompt('Folder name:');
+  if (!name) return;
+  const { ok, data } = await api('POST', '/uploads/folder', { folder_name: name });
+  if (ok) {
+    showAlert('media-alert', `Folder "${name}" created.`, 'success');
+    loadMedia();
+  } else {
+    showAlert('media-alert', data.error || 'Create folder failed', 'error');
   }
 }
 

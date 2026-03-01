@@ -359,6 +359,99 @@ def presign_upload():
     return {"upload_url": upload_url, "key": safe_name, "expires_in": 900}
 
 
+@app.get("/uploads")
+def list_uploads():
+    err, status = require_auth()
+    if err:
+        return err, status
+
+    bucket = os.environ.get("CDN_BUCKET_NAME")
+    if not bucket:
+        return {"error": "Bucket not configured"}, 500
+
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+    contents = {}
+    paginator = s3.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket):
+        for item in page.get("Contents", []):
+            key = item["Key"]
+            ext = key.rsplit(".", 1)[-1].lower() if "." in key else ""
+            contents[key] = {
+                "Key": key,
+                "Size": item["Size"],
+                "LastModified": item["LastModified"].isoformat(),
+                "fileext": ext,
+            }
+    return contents
+
+
+@app.delete("/uploads")
+def delete_upload():
+    err, status = require_auth()
+    if err:
+        return err, status
+
+    key = app.current_event.get_query_string_value("key")
+    if not key:
+        return {"error": "key query parameter is required"}, 400
+
+    bucket = os.environ.get("CDN_BUCKET_NAME")
+    if not bucket:
+        return {"error": "Bucket not configured"}, 500
+
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+    s3.delete_object(Bucket=bucket, Key=key)
+    logger.info(f"Deleted S3 object: {key} from {bucket}")
+    return {"message": f"Deleted {key}"}
+
+
+@app.post("/uploads/move")
+def move_upload():
+    err, status = require_auth()
+    if err:
+        return err, status
+
+    body = app.current_event.json_body or {}
+    old_key = body.get("old_key", "")
+    new_key = body.get("new_key", "")
+    if not (old_key and new_key):
+        return {"error": "old_key and new_key are required"}, 400
+
+    bucket = os.environ.get("CDN_BUCKET_NAME")
+    if not bucket:
+        return {"error": "Bucket not configured"}, 500
+
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+    s3.copy_object(Bucket=bucket, CopySource={"Bucket": bucket, "Key": old_key}, Key=new_key)
+    s3.delete_object(Bucket=bucket, Key=old_key)
+    logger.info(f"Moved S3 object: {old_key} -> {new_key} in {bucket}")
+    return {"message": f"Moved {old_key} to {new_key}"}
+
+
+@app.post("/uploads/folder")
+def create_s3_folder():
+    err, status = require_auth()
+    if err:
+        return err, status
+
+    body = app.current_event.json_body or {}
+    folder_name = body.get("folder_name", "")
+    if not folder_name:
+        return {"error": "folder_name is required"}, 400
+
+    if not folder_name.endswith("/"):
+        folder_name += "/"
+
+    bucket = os.environ.get("CDN_BUCKET_NAME")
+    if not bucket:
+        return {"error": "Bucket not configured"}, 500
+
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+    s3.put_object(Bucket=bucket, Key=folder_name)
+    logger.info(f"Created S3 folder: {folder_name} in {bucket}")
+    return {"message": f"Folder {folder_name} created"}, 201
+
+
 @logger.inject_lambda_context
 def lambda_handler(event, context):
     logger.info(event)
