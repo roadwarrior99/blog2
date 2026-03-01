@@ -15,6 +15,7 @@ logger = Logger()
 app = APIGatewayHttpResolver(strip_prefixes=[re.compile(r"^/[^/]+/baas"), "/baas"])
 
 DB_PATH = os.environ.get("DB_PATH", "/mnt/efs/data/vacuumflask.db")
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "mov", "webm", "mp4", "zip"}
 
 _secrets = None
 
@@ -322,6 +323,40 @@ def delete_post(post_id):
     conn.close()
     logger.info(f"Post {post_id} deleted")
     return {"message": "Post deleted"}
+
+
+@app.post("/uploads/presign")
+def presign_upload():
+    err, status = require_auth()
+    if err:
+        return err, status
+
+    body = app.current_event.json_body or {}
+    filename = body.get("filename", "")
+    content_type = body.get("content_type", "application/octet-stream")
+    internal = body.get("internal", False)
+
+    if not filename:
+        return {"error": "filename is required"}, 400
+
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        return {"error": f"File type .{ext} is not allowed"}, 400
+
+    safe_name = re.sub(r"[^\w.\-]", "_", filename)
+    bucket = os.environ.get("INTERNAL_BUCKET_NAME" if internal else "CDN_BUCKET_NAME")
+    if not bucket:
+        return {"error": "Bucket not configured"}, 500
+
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+    upload_url = s3.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": bucket, "Key": safe_name, "ContentType": content_type},
+        ExpiresIn=900,  # 15 minutes
+    )
+
+    logger.info(f"Presigned URL generated for {safe_name} -> {bucket}")
+    return {"upload_url": upload_url, "key": safe_name, "expires_in": 900}
 
 
 @logger.inject_lambda_context
