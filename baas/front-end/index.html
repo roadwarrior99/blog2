@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>while(motivation &lt;= 0)</title>
+  <title>Another unused blog</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/themes/prism-tomorrow.min.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -77,6 +77,11 @@
       height: 30px;
       background: linear-gradient(transparent, white);
     }
+    .post-card-expanded .post-body { font-size: 0.95rem; line-height: 1.6; }
+    .post-card-expanded .post-body img { max-width: 100%; height: auto; border-radius: 4px; }
+    .post-card-expanded .post-body pre { overflow-x: auto; margin: 12px 0; }
+    .post-card-expanded .post-body p { margin: 0 0 10px; }
+    .post-card-expanded .post-body h1,.post-card-expanded .post-body h2,.post-card-expanded .post-body h3 { margin: 16px 0 8px; }
     .post-actions { margin-top: 10px; display: flex; gap: 8px; }
 
     /* --- Single post --- */
@@ -86,7 +91,15 @@
     .post-full .post-body pre { margin: 12px 0; }
 
     /* --- Tag cloud --- */
-    .tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+    .tag-cloud-toggle {
+      background: none; border: 1px solid #b0d8f5; border-radius: 6px;
+      color: #005f99; cursor: pointer; font-size: 0.85rem;
+      padding: 5px 12px; margin-bottom: 4px;
+    }
+    .tag-cloud-toggle:hover { background: #e0f0ff; }
+    .tag-cloud-panel { display: none; }
+    .tag-cloud-panel.open { display: block; }
+    .tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px; }
     .tag-chip {
       display: inline-block;
       padding: 4px 10px;
@@ -231,8 +244,31 @@
       margin-bottom: 3px;
       color: #333;
     }
+    .media-folder { display: block; font-weight: normal; color: #999; font-size: 0.68rem; margin-bottom: 1px; }
     .media-meta { font-size: 0.72rem; color: #888; margin-bottom: 6px; flex: 1; }
     .media-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+
+    /* --- Modal --- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: white;
+      border-radius: 10px;
+      padding: 24px;
+      max-width: 480px;
+      width: 90%;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .modal-box h3 { color: #005f99; margin-bottom: 16px; }
+    .modal-actions { margin-top: 16px; display: flex; gap: 10px; }
 
     /* --- Misc --- */
     .section-title { color: #005f99; margin-bottom: 14px; font-size: 1.3rem; }
@@ -376,8 +412,22 @@
 
 </main>
 
+<!-- Rename modal -->
+<div id="rename-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Rename File</h3>
+    <input type="hidden" id="rename-old-key">
+    <label>New name</label>
+    <input type="text" id="rename-new-key" onkeydown="if(event.key==='Enter')submitRename();if(event.key==='Escape')closeRenameModal()">
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="submitRename()">Rename</button>
+      <button class="btn btn-secondary" onclick="closeRenameModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <footer>
-  <p>© 2024 Another unused blog</p>
+  <p>© 2026 Another unused blog</p>
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/prism.min.js"></script>
@@ -489,6 +539,16 @@ function escHtml(str) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+function htmlDecode(str) {
+  // Decode common HTML entities — &amp; last so &amp;lt; → &lt; not <
+  // Also normalize smart/curly quotes to ASCII so HTML attributes parse correctly
+  return String(str ?? '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'");
+}
 function fmtDate(d) {
   if (!d) return '';
   return String(d).substring(0, 10);
@@ -519,12 +579,17 @@ async function loadPosts(filterTag = null) {
                 onclick="navigate('posts',{tag:'${escHtml(name)}'})">
                 ${escHtml(name)} <sup>${count}</sup></span>`;
     }).join('');
-    cloudEl.innerHTML = `<div class="tag-cloud">${chips}</div>`;
-    if (filterTag) {
-      cloudEl.innerHTML += `<p style="margin-bottom:12px;font-size:0.85rem">
+    const filterNote = filterTag ? `<p style="margin:8px 0 12px;font-size:0.85rem">
         Filtering by tag: <strong>${escHtml(filterTag)}</strong>
-        <a href="#" onclick="navigate('posts');return false" style="margin-left:8px">clear</a></p>`;
-    }
+        <a href="#" onclick="navigate('posts');return false" style="margin-left:8px">clear</a></p>` : '';
+    cloudEl.innerHTML = `
+      <button class="tag-cloud-toggle" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.nextElementSibling.classList.contains('open')?'▲ Hide tag cloud':'▼ Show tag cloud'">
+        ${filterTag ? '▲ Hide tag cloud' : '▼ Show tag cloud'}
+      </button>
+      <div class="tag-cloud-panel${filterTag ? ' open' : ''}">
+        <div class="tag-cloud">${chips}</div>
+        ${filterNote}
+      </div>`;
   } else {
     cloudEl.innerHTML = '';
   }
@@ -541,7 +606,17 @@ async function loadPosts(filterTag = null) {
     return;
   }
 
-  listEl.innerHTML = posts.map(p => `
+  listEl.innerHTML = posts.map((p, i) => i < 2 ? `
+    <div class="post-card post-card-expanded">
+      <h2><a onclick="navigate('post',{id:${p.id}})">${escHtml(p.subject)}</a></h2>
+      <div class="post-meta">${fmtDate(p.date)}</div>
+      <div class="post-body">${htmlDecode(p.body || '')}</div>
+      <div class="post-actions">
+        ${isLoggedIn() ? `
+          <button class="btn btn-secondary btn-sm" onclick="navigate('editor',{id:${p.id}})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePost(${p.id})">Delete</button>` : ''}
+      </div>
+    </div>` : `
     <div class="post-card">
       <h2><a onclick="navigate('post',{id:${p.id}})">${escHtml(p.subject)}</a></h2>
       <div class="post-meta">${fmtDate(p.date)}</div>
@@ -553,6 +628,7 @@ async function loadPosts(filterTag = null) {
           <button class="btn btn-danger btn-sm" onclick="deletePost(${p.id})">Delete</button>` : ''}
       </div>
     </div>`).join('');
+  if (typeof Prism !== 'undefined') Prism.highlightAll();
 }
 
 // ─── Single post ──────────────────────────────────────────────────────────────
@@ -577,7 +653,7 @@ async function loadPost(id) {
           <button class="btn btn-secondary btn-sm" onclick="navigate('editor',{id:${data.id}})">Edit</button>
           <button class="btn btn-danger btn-sm" onclick="deletePost(${data.id})">Delete</button>
         </div>` : ''}
-      <div class="post-body">${data.body || ''}</div>
+      <div class="post-body">${htmlDecode(data.body || '')}</div>
       <div style="margin-top:24px">
         <button class="btn btn-secondary btn-sm" onclick="navigate('posts')">← Back to posts</button>
       </div>
@@ -659,7 +735,7 @@ async function setupEditor(postId) {
     document.getElementById('editor-date').value    = fmtDate(data.date);
     document.getElementById('editor-rss').value     = data.rss_description || '';
     document.getElementById('editor-seo').value     = data.seo_keywords || '';
-    document.getElementById('editor-body').value    = data.body || '';
+    document.getElementById('editor-body').value    = htmlDecode(data.body || '');
   } else {
     document.getElementById('editor-form').reset();
     document.getElementById('editor-date').value = new Date().toISOString().substring(0, 10);
@@ -723,7 +799,11 @@ function resetUpload() {
 function fileSelected(file) {
   if (!file) return;
   selectedUploadFile = file;
-  document.getElementById('upload-filename').textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'mov') {
+    document.getElementById('upload-bucket').value = 'internal';
+  }
+  document.getElementById('upload-filename').textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)${ext === 'mov' ? ' — routed to Internal' : ''}`;
   document.getElementById('upload-btn').disabled = false;
   document.getElementById('upload-progress-area').style.display = 'none';
 }
@@ -835,8 +915,10 @@ function buildMediaCard(item) {
   const ext      = item.fileext || '';
   const isImage  = IMAGE_EXTS.has(ext);
   const isVideo  = VIDEO_EXTS.has(ext);
-  const shortName = key.split('/').filter(Boolean).pop() || key;
-  const qKey     = JSON.stringify(key);
+  const parts     = key.split('/').filter(Boolean);
+  const shortName = parts.pop() || key;
+  const folderPath = parts.length ? parts.join('/') + '/' : '';
+  const dKey     = escHtml(key);  // safe for HTML attributes
   const cdnHref  = escHtml(CDN_URL + '/' + key);
 
   let thumb;
@@ -848,30 +930,32 @@ function buildMediaCard(item) {
 
   const meta    = isFolder ? 'Folder' : fmtSize(item.Size);
   const openBtn = isFolder ? '' : `<a href="${cdnHref}" target="_blank" class="btn btn-secondary btn-sm" title="Open">&#8599;</a>`;
-  const copyBtn = isFolder ? '' : `<button class="btn btn-secondary btn-sm" onclick="copyUrl(${qKey})" title="Copy URL">&#128279;</button>`;
+  const copyBtn = isFolder ? '' : `<button class="btn btn-secondary btn-sm" onclick="copyUrl(this)" data-key="${dKey}" title="Copy URL">&#128279;</button>`;
 
   return `
     <div class="media-card">
       ${thumb}
       <div class="media-info">
-        <div class="media-name" title="${escHtml(key)}">${escHtml(shortName)}</div>
+        <div class="media-name" title="${escHtml(key)}">${folderPath ? `<span class="media-folder">${escHtml(folderPath)}</span>` : ''}${escHtml(shortName)}</div>
         <div class="media-meta">${escHtml(meta)}</div>
         <div class="media-actions">
           ${openBtn}${copyBtn}
-          <button class="btn btn-secondary btn-sm" onclick="promptRename(${qKey})" title="Rename">&#9998;</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteUploadFile(${qKey})" title="Delete">&times;</button>
+          <button class="btn btn-secondary btn-sm" onclick="promptRename(this)" data-key="${dKey}" title="Rename">&#9998;</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteUploadFile(this)" data-key="${dKey}" title="Delete">&times;</button>
         </div>
       </div>
     </div>`;
 }
 
-function copyUrl(key) {
+function copyUrl(btn) {
+  const key = btn.dataset.key;
   navigator.clipboard.writeText(CDN_URL + '/' + key)
     .then(() => showAlert('media-alert', 'URL copied to clipboard.', 'success'))
     .catch(() => showAlert('media-alert', CDN_URL + '/' + key, 'info'));
 }
 
-async function deleteUploadFile(key) {
+async function deleteUploadFile(btn) {
+  const key = btn.dataset.key;
   if (!confirm(`Delete "${key}"?\nThis cannot be undone.`)) return;
   const { ok, data } = await api('DELETE', `/uploads?key=${encodeURIComponent(key)}`);
   if (ok) {
@@ -882,10 +966,26 @@ async function deleteUploadFile(key) {
   }
 }
 
-async function promptRename(key) {
-  const newKey = prompt(`Rename to:`, key);
-  if (!newKey || newKey === key) return;
-  const { ok, data } = await api('POST', '/uploads/move', { old_key: key, new_key: newKey });
+function promptRename(btn) {
+  const key = btn.dataset.key;
+  document.getElementById('rename-old-key').value = key;
+  document.getElementById('rename-new-key').value = key;
+  document.getElementById('rename-modal').classList.add('open');
+  const input = document.getElementById('rename-new-key');
+  input.focus();
+  input.select();
+}
+
+function closeRenameModal() {
+  document.getElementById('rename-modal').classList.remove('open');
+}
+
+async function submitRename() {
+  const oldKey = document.getElementById('rename-old-key').value;
+  const newKey = document.getElementById('rename-new-key').value.trim();
+  closeRenameModal();
+  if (!newKey || newKey === oldKey) return;
+  const { ok, data } = await api('POST', '/uploads/move', { old_key: oldKey, new_key: newKey });
   if (ok) {
     showAlert('media-alert', `Renamed to "${newKey}".`, 'success');
     loadMedia();

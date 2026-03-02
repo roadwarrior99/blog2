@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New year new personal development — cmh.sh</title>
+  <meta name="description" content="Amazon aws personal development">
+  <meta name="keywords" content="aws,docker,containers,ecs,alb,ip6,ip4">
+  <link rel="canonical" href="https://baas.cmh.sh/post/226/">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8; color: #1a1a2e; line-height: 1.6;
+    }
+    header {
+      background: #005f99; color: white; padding: 12px 20px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    header a { color: white; text-decoration: none; font-size: 0.9rem; opacity: .8; }
+    header a:hover { opacity: 1; }
+    .container { max-width: 820px; margin: 32px auto; padding: 0 16px; }
+    .post-full {
+      background: white; border-radius: 10px; padding: 28px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+    }
+    h1 { font-size: 1.6rem; margin: 0 0 6px; color: #005f99; }
+    .meta { font-size: 0.8rem; color: #777; margin-bottom: 18px; }
+    .body { font-size: 0.97rem; line-height: 1.7; }
+    .body img { max-width: 100%; height: auto; border-radius: 4px; }
+    .body pre { overflow-x: auto; background: #f4f4f4; border-radius: 6px; padding: 14px; }
+    .body p { margin: 0 0 12px; }
+    .body h2, .body h3 { margin: 20px 0 8px; }
+    .tags { margin-top: 20px; }
+    .spa-link {
+      display: inline-block; margin-top: 24px;
+      padding: 8px 18px; background: #005f99; color: white;
+      border-radius: 6px; text-decoration: none; font-size: 0.9rem;
+    }
+    .spa-link:hover { background: #004d80; }
+    footer {
+      text-align: center; padding: 24px 16px; font-size: 0.8rem; color: #999;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>cmh.sh</strong>
+    <a href="https://baas.cmh.sh/index.html">&#8592; All posts</a>
+  </header>
+  <div class="container">
+    <article class="post-full">
+      <h1>New year new personal development</h1>
+      <div class="meta">2025-01-05</div>
+      <div class="body">A week of personal development.
+I started the week working to implement ip6 across my aws vpc. With some help from Amazon Q I was able to create some new ip6 friendly subsets and dipped my toe into getting rid of my ip4 public ip addresses. To get it working on my existing network:
+<ul><li>enable ip6 on the vpc</li>
+<li>calculate ip6 sub-net masks</li>
+<li>create new sub-nets that support ip 6</li>
+<li>create an "egress only gateway (ip6 only)"</li>
+<li>Add a route to allow internet traffic out through the new egress gateway.</li>
+</ul>
+<br/>
+What I quickly discovered after removing my public ip4 addresses in a vpc/subnet with no Nat-gateways (not nat gateway to save $) was that a lot of AWS services do not yet support ip6. The one that was my biggest issue was the elastic container registry. 
+<br/>
+My next project over break was to try containerize all of my old websites that were being hosted on my project box. The process of getting apache / php and my dependency chain for my project websites ended up taking several days. Much to my surprise, the tool that ended up being very useful was Amazon Q. It provided to be more useful than ChatGPT when it came to getting apache, PHP, and my dependency chain to cooperate. 
+<br/>
+Once I got my old websites containerized I set about going after some nice to haves. I set up an auto dns/tag updater so that my spawned instances would follow the pattern that would make them easy to manage. This would also allow me to eventually have totally dynamic hosting for my ECS tasks, clusters, and all of my docker needs. 
+<br/>
+<pre>
+<code>
+#!/bin/bash
+version=$(date +"%Y%m%d%H%M%S")
+docker build --tag blog.myname.dev:$version .
+success=$(docker images | grep -w $version)
+if [ -z "$success" ]; then
+    echo "build failed"
+    exit 1
+fi
+imageid=$(docker image ls | grep -w "blog.myname.dev" | awk '{print $3}')
+#echo "new imageid: $imageid"
+lastimage=$(head -1 <<< $imageid)
+old_containers=$(docker ps -a | grep -w "blog.myname.dev"| grep -w Exited | grep -E "months|weeks|days|hours" | awk '{print $1}')
+while IFS= read -r instance
+do
+        docker container rm "$instance"
+done <<< "$old_containers"
+echo "cleaning up old images"
+while IFS= read -r image; do
+    if [ "$image" != "$lastimage" ]; then
+        echo "removing image: $image"
+        docker rmi $image
+    fi
+done <<< "$imageid"
+echo "last imageid: $lastimage"
+created=$(docker images | grep -w $lastimage | awk '{print $4}')
+echo "created: $created"
+</code>
+<code>
+#!/bin/bash
+img=$( docker images | grep  blog.myname.dev | head -1 | awk '{print $3}')
+echo "running image $img"
+docker run  -p 80:80 \
+--volume /home/colin/projectbox/var/www/blog/blogdata:/var/www/blog/blogdata \
+--volume /home/colin/projectbox/var/www/blog/logs:/var/log \
+-e AWS_REGION=US-EAST-1 -td "$img"
+echo "waiting for container to start"
+sleep 5
+contid=$(docker ps -a | grep "$img" | awk '{print $1}')
+echo "container id is $contid"
+status=$(docker ps -a | grep "$contid" | awk '{print $7}')
+echo "container status is $status"
+if [ "$status" != "Up" ]; then
+    echo "container failed to start"
+    docker logs "$contid"
+    echo "removing container"
+    docker rm "$contid"
+fi
+</code>
+<code>
+#!/bin/bash
+ZONE_ID="myzoneid"
+PATTERN="internal.cmh.sh."
+
+# Get all records and filter for internal.cmh.sh entries
+dnslist=$(aws route53 list-resource-record-sets \
+    --hosted-zone-id "$ZONE_ID" \
+    --query "ResourceRecordSets[?ends_with(Name, '$PATTERN')].[ResourceRecords[].Value | [0], Name]" \
+    --profile vacuum \
+    --output text | sed 's/\.$//')
+
+instancelist=$(aws ec2 describe-instances \
+    --filters "Name=tag:Name,Values=*.internal.cmh.sh" "Name=instance-state-name,Values=running" \
+    --query 'Reservations[].Instances[].[LaunchTime,PrivateIpAddress,Tags[?Key==`Name`].Value | [0]]' \
+    --output text --profile vacuum --region us-east-1 | sort)
+
+defaultinstances=$(aws ec2 describe-instances \
+    --filters "Name=tag:Name,Values=Vacuum-Server" "Name=instance-state-name,Values=running" \
+    --query 'Reservations[].Instances[].[LaunchTime,PrivateIpAddress,Tags[?Key==`Name`].Value | [0]]' \
+    --output text --profile vacuum --region us-east-1 | sort)
+
+instanceCount=$(wc -l <<< "$instancelist")
+
+echo "dns list: $dnslist"
+echo "instance list: $instancelist"
+
+bash update_dns_loop.sh "$instancelist" $instanceCount
+bash update_dns_loop.sh "$defaultinstances" $instanceCount
+</code>
+<code>
+#!/bin/bash
+if [ $# -ne 2 ]; then
+    echo "Usage: <data> <count of existing instances>"
+    echo "data format: <launchTime> <privateIp> <name>"
+    exit 1
+fi
+echo $1 | while read -r launchTime privateIp name; do
+    echo "Checking $name ($privateIp)"
+    if grep -q "$name" <<< "$dnslist"; then
+        echo "  DNS record exists"
+        if grep -q "$privateIp" <<< "$dnslist"; then
+            echo "    IP address matches"
+        else
+            echo "    IP address does not match"
+            sh update_internal_dns.sh $name $privateIp
+        fi
+    else
+        echo "  DNS record does not exist"
+        if [ $name == "Vacuum-Server" ]; then
+            #will not work if more than one instance was spun up.
+            name="vacuumhost$2.internal.cmh.sh"
+            sh update-ec2-name-from-priv-ip.sh $privateIp $name
+        fi
+        sh update_internal_dns.sh $name $privateIp
+    fi
+done
+</code>
+<code>
+#!/bin/bash
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <name> <privateIp>"
+    exit 1
+fi
+name=$1
+privateIp=$2
+aws route53 change-resource-record-sets \
+            --hosted-zone-id myzoneid \
+            --change-batch '{
+                "Changes": [
+                {
+                    "Action": "UPSERT",
+                    "ResourceRecordSet": {
+                    "Name": "'"$name"'",
+                    "Type": "A",
+                    "TTL": 300,
+                    "ResourceRecords": [
+                        {
+                        "Value": "'"$privateIp"'"
+                        }
+                    ]
+                    }
+                }
+                ]
+            }' --profile vacuum  --output text 
+
+</code>
+<code>
+#!/bin/bash
+#!/bin/bash
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <private-ip> <new-name>"
+    exit 1
+fi
+
+PRIVATE_IP=$1
+NEW_NAME=$2
+
+INSTANCE_ID=$(aws ec2 describe-instances \
+    --filters "Name=private-ip-address,Values=$PRIVATE_IP" \
+    --query "Reservations[].Instances[].InstanceId" \
+    --output text --profile vacuum --region us-east-1)
+
+if [ -z "$INSTANCE_ID" ]; then
+    echo "No instance found with private IP $PRIVATE_IP"
+    exit 1
+fi
+
+aws ec2 create-tags \
+    --resources $INSTANCE_ID \
+    --tags "Key=Name,Value=$NEW_NAME" \
+    --profile vacuum --region us-east-1
+
+if [ $? -eq 0 ]; then
+    echo "Successfully updated tag for instance $INSTANCE_ID"
+else
+    echo "Failed to update tag"
+fi
+
+</code>
+</pre>
+
+</div>
+      <div class="tags"><a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">aws</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">docker</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">containers</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">ecs</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">alb</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">ip6</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">ip4</a></div>
+      <a class="spa-link" href="https://baas.cmh.sh/index.html">&#8592; Back to all posts</a>
+    </article>
+  </div>
+  <footer>&copy; cmh.sh</footer>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adventures in C++ SDK hell — cmh.sh</title>
+  <meta name="description" content="SDK hell">
+  <meta name="keywords" content="aws,sdk,c++">
+  <link rel="canonical" href="https://baas.cmh.sh/post/218/">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8; color: #1a1a2e; line-height: 1.6;
+    }
+    header {
+      background: #005f99; color: white; padding: 12px 20px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    header a { color: white; text-decoration: none; font-size: 0.9rem; opacity: .8; }
+    header a:hover { opacity: 1; }
+    .container { max-width: 820px; margin: 32px auto; padding: 0 16px; }
+    .post-full {
+      background: white; border-radius: 10px; padding: 28px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+    }
+    h1 { font-size: 1.6rem; margin: 0 0 6px; color: #005f99; }
+    .meta { font-size: 0.8rem; color: #777; margin-bottom: 18px; }
+    .body { font-size: 0.97rem; line-height: 1.7; }
+    .body img { max-width: 100%; height: auto; border-radius: 4px; }
+    .body pre { overflow-x: auto; background: #f4f4f4; border-radius: 6px; padding: 14px; }
+    .body p { margin: 0 0 12px; }
+    .body h2, .body h3 { margin: 20px 0 8px; }
+    .tags { margin-top: 20px; }
+    .spa-link {
+      display: inline-block; margin-top: 24px;
+      padding: 8px 18px; background: #005f99; color: white;
+      border-radius: 6px; text-decoration: none; font-size: 0.9rem;
+    }
+    .spa-link:hover { background: #004d80; }
+    footer {
+      text-align: center; padding: 24px 16px; font-size: 0.8rem; color: #999;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>cmh.sh</strong>
+    <a href="https://baas.cmh.sh/index.html">&#8592; All posts</a>
+  </header>
+  <div class="container">
+    <article class="post-full">
+      <h1>Adventures in C++ SDK hell</h1>
+      <div class="meta">2024-11-24</div>
+      <div class="body">So two weekends ago I decided to try to get my twitch bot Raphael working on Windows. It didn't take much to get it fired up, but I quickly discovered that the performance was terrible. In order to try and solve this issue I started investigating how difficult it would be to write portions of the bot in C++ to try and achieve the same or better performance over what I see in Linux. Asking ChatGPT made the prospect look to be within reach so I set about implementing Raphael in C+++. The rest of the first weekend was spent trying to get the AWS C++ SDK to compile and build. That following Monday I was able to get the SDK to build, but it never stopped complaining about parts of it being missing. This weekend I tried taking a step back and seeing about getting individual components to work. PortAudio which is the leading solution for working directly with Audio with C++ was no trouble at all. I then landed right back with my new nemesis the AWS C++ SDK which even with all of the examples available, I haven't been able to get any piece of the AWS SDK working. This was quite a surprise as the boto3 aws sdk for python is fabulous and works right out of the box with barely any set up. I'm not sure if this project is beyond my skills and patience but more investigation is needed. Everything I've come across for working with c++ requires you to build, compile, and implement the references in CMAKE which has had quite a bit of a learning curve. </div>
+      <div class="tags"><a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">aws</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">sdk</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">c++</a></div>
+      <a class="spa-link" href="https://baas.cmh.sh/index.html">&#8592; Back to all posts</a>
+    </article>
+  </div>
+  <footer>&copy; cmh.sh</footer>
+</body>
+</html>
