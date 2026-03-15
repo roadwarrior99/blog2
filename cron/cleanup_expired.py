@@ -1,14 +1,27 @@
 import json
 import logging
 import os
+import platform
 import urllib.request
 import urllib.error
+from datetime import datetime
 
 import boto3
 import pyotp
+from watchtower import CloudWatchLogHandler
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+stream_name = f"cleanup_expired_{platform.node()}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger("cleanup_expired")
+
+_cloudwatch_handler = CloudWatchLogHandler(
+    log_group_name="cron",
+    stream_name=stream_name,
+    boto3_client=boto3.client("logs", region_name=os.environ.get("AWS_REGION", "us-east-1")),
+)
+_cloudwatch_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+logger.addHandler(_cloudwatch_handler)
 
 
 def get_secrets():
@@ -30,8 +43,12 @@ def api_login(base_url, api_key_salt, otp_secret):
         with urllib.request.urlopen(req) as resp:
             body = json.loads(resp.read())
     except urllib.error.HTTPError as e:
-        body = json.loads(e.read())
-        raise RuntimeError(f"Login failed: {body.get('message', e.code)}")
+        raw = e.read()
+        try:
+            msg = json.loads(raw).get("message", e.code)
+        except Exception:
+            msg = raw.decode(errors="replace") or f"HTTP {e.code}"
+        raise RuntimeError(f"Login failed ({e.code}): {msg}")
 
     if not body.get("success"):
         raise RuntimeError(f"Login failed: {body.get('message')}")
@@ -53,35 +70,47 @@ def run_cleanup(base_url, token):
         with urllib.request.urlopen(req) as resp:
             return json.loads(resp.read())
     except urllib.error.HTTPError as e:
-        body = json.loads(e.read())
-        raise RuntimeError(f"Cleanup failed: {body.get('message', e.code)}")
+        raw = e.read()
+        try:
+            msg = json.loads(raw).get("message", e.code)
+        except Exception:
+            msg = raw.decode(errors="replace") or f"HTTP {e.code}"
+        raise RuntimeError(f"Cleanup failed ({e.code}): {msg}")
 
 
 def handler(event, context):
-    base_url = os.environ["APP_BASE_URL"].rstrip("/")
+    logger.info("=== cleanup_expired starting ===")
+    try:
+        base_url = os.environ["APP_BASE_URL"].rstrip("/")
+        logger.info("Target: %s", base_url)
 
-    secrets = get_secrets()
-    api_key_salt = secrets["VACUUMAPIKEYSALT"]
-    otp_secret = secrets["OTS_SECRET"]
+        logger.info("Fetching secrets from Secrets Manager...")
+        secrets = get_secrets()
+        api_key_salt = secrets["VACUUMAPIKEYSALT"]
+        otp_secret = secrets["OTS_SECRET"]
+        logger.info("Secrets loaded.")
 
-    logger.info("Logging in to %s", base_url)
-    token = api_login(base_url, api_key_salt, otp_secret)
-    logger.info("Login successful, running cleanup")
+        logger.info("Logging in to %s", base_url)
+        token = api_login(base_url, api_key_salt, otp_secret)
+        logger.info("Login successful.")
 
-    result = run_cleanup(base_url, token)
-    deleted = result.get("deleted", [])
-    failed = result.get("failed", [])
+        logger.info("Running expired media cleanup...")
+        result = run_cleanup(base_url, token)
+        deleted = result.get("deleted", [])
+        failed = result.get("failed", [])
 
-    logger.info("Cleanup complete. Deleted %d file(s), failed %d.", len(deleted), len(failed))
-    if deleted:
-        logger.info("Deleted: %s", deleted)
-    if failed:
-        logger.error("Failed to delete: %s", failed)
+        logger.info("Cleanup complete. Deleted: %d  Failed: %d", len(deleted), len(failed))
+        for key in deleted:
+            logger.info("  Deleted: %s", key)
+        for key in failed:
+            logger.error("  Failed:  %s", key)
 
-    return {
-        "statusCode": 200,
-        "body": result,
-    }
+        logger.info("=== cleanup_expired finished ===")
+        return {"statusCode": 200, "body": result}
+
+    except Exception as e:
+        logger.exception("cleanup_expired failed: %s", e)
+        raise
 
 if __name__ == "__main__":
     handler(None, None)
