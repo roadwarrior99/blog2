@@ -49,6 +49,26 @@ timeobj = datetime.datetime.now()
 # Configure the Flask logger
 logger = logging.getLogger(__name__)
 cloud_watch_stream_name = "vacuum_flask_log_{0}_{1}".format(platform.node(),timeobj.strftime("%Y%m%d%H%M%S"))
+
+
+app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB in bytes
+app.config['SESSION_REDIS'] = redis.from_url(os.environ.get('REDIS_SERVER'))
+redis_client = redis.from_url(os.environ.get('REDIS_SERVER'))
+API_TOKEN_TTL = 3600  # 1 hour
+API_TOKEN_PREFIX = "api_token:"
+
+auth = Blueprint('auth', __name__)
+login_manager = flask_login.LoginManager(app)
+app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+db_path = "data/vacuumflask.db"
+ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
+good_list = "data/goodlist.txt"
+#s3_content = list_files()
+
+
 if os.environ.get("AWS_PROFILE_NAME"):
     boto3.setup_default_session(profile_name=os.environ.get("AWS_PROFILE_NAME"), region_name=os.environ.get("AWS_REGION_NAME"))
     logger.info("AWS_PROFILE set to {0}".format(os.environ.get("AWS_PROFILE_NAME")))
@@ -87,6 +107,13 @@ for key in sec_keys:
 
 internal_bucket = os.environ.get("INTERNAL_BUCKET_NAME")
 
+def delete_expiration_record(s3_key):
+    conn = sqlite3.connect(db_path)
+    conn.execute("DELETE FROM media_expiration WHERE s3_key=?", [s3_key])
+    conn.commit()
+    conn.close()
+
+
 def ensure_expiration_table():
     conn = sqlite3.connect(db_path)
     conn.execute("""
@@ -100,27 +127,11 @@ def ensure_expiration_table():
     conn.commit()
     conn.close()
 
-ensure_expiration_table()
-app.config['SESSION_TYPE'] = 'redis'
-app.config['SESSION_PERMANENT'] = False
-app.config['SESSION_USE_SIGNER'] = True
-app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB in bytes
-app.config['SESSION_REDIS'] = redis.from_url(os.environ.get('REDIS_SERVER'))
-redis_client = redis.from_url(os.environ.get('REDIS_SERVER'))
-API_TOKEN_TTL = 3600  # 1 hour
-API_TOKEN_PREFIX = "api_token:"
 
-auth = Blueprint('auth', __name__)
-login_manager = flask_login.LoginManager(app)
-app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
-db_path = "data/vacuumflask.db"
-ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
-good_list = "data/goodlist.txt"
-#s3_content = list_files()
 
 #server_session = session(app)
 
-
+ensure_expiration_table()
 
 
 def require_auth(f):
@@ -405,6 +416,7 @@ def public_content_file_upload():
                and request.form.get('new_filename')\
                 and request.form.get('new_filename') != "":
             file.filename = request.form.get('new_filename')
+        expires_at = request.form.get('expires_at', '').strip()
         new_img = []
         if request.form.get('Mobile'):
             logger.info("Mobile image processing.")
@@ -422,14 +434,28 @@ def public_content_file_upload():
             logger.info(f"S3 Start Transfer to internal bucket {internal_bucket} of file {file.filename}")
             s3_upload_file(file,file.filename,internal_bucket)
             return render_template("save.html")
+        uploaded_keys = []
         if len(new_img) > 0:
             for img_file,filename in new_img:
                 if img_file:
                     s3_upload_file(img_file, filename)
+                    uploaded_keys.append(secure_filename(filename))
                 else:
                     print("No file to save.")
         else:
             s3_upload_file(file,file.filename)
+            uploaded_keys.append(secure_filename(file.filename))
+        if expires_at:
+            conn = sqlite3.connect(db_path)
+            for s3_key in uploaded_keys:
+                conn.execute("""
+                    INSERT INTO media_expiration (s3_key, expires_at, created_at)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(s3_key) DO UPDATE SET expires_at=excluded.expires_at
+                """, [s3_key, expires_at, datetime.datetime.utcnow().isoformat()])
+                logger.info(f"Expiration set on upload for {s3_key}: {expires_at}")
+            conn.commit()
+            conn.close()
         logger.info("S3 file uploaded: {0}".format(file.filename))
         return render_template("save.html")
     else:
@@ -445,7 +471,12 @@ def public_content():
     sorted_content = dict(
         sorted(s3_content.items(), key=lambda kv: (0 if kv[0].endswith('/') else 1, kv[0].lower()))
     )
-    return render_template("public_content.html", contents=sorted_content)
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT s3_key, expires_at FROM media_expiration")
+    expirations = {row[0]: row[1] for row in cur.fetchall()}
+    conn.close()
+    return render_template("public_content.html", contents=sorted_content, expirations=expirations)
 
 @app.route('/public_content/create_folder', methods=['POST'])
 @flask_login.login_required
@@ -496,6 +527,7 @@ def bulk_action():
     if action == 'delete':
         for file_key in selected_files:
             s3_remove_file(file_key)
+            delete_expiration_record(file_key)
             logger.info(f"Bulk deleted: {file_key}")
     
     elif action == 'move':
@@ -551,6 +583,7 @@ def public_content_remove(Key):
     s3_content = list_files()
     if Key in s3_content:
         s3_remove_file(Key)
+        delete_expiration_record(Key)
         logger.info("Removed from S3: {0}".format(Key))
         s3_content = list_files()
         return render_template("save.html")
@@ -583,6 +616,7 @@ def api_delete():
         return json.dumps({'success': False, 'message': 'key is required'}), 400
     try:
         s3_remove_file(key)
+        delete_expiration_record(key)
         logger.info(f"Deleted {key}")
         return json.dumps({'success': True})
     except Exception as e:
@@ -658,6 +692,21 @@ def cleanup_expired_media():
     conn.commit()
     conn.close()
     return json.dumps({'success': True, 'deleted': deleted, 'failed': failed})
+
+
+@app.route('/.well-known/mcp.json')
+def mcp_discovery():
+    base_url = os.environ.get("APP_BASE_URL", request.host_url.rstrip("/"))
+    payload = {
+        "mcpServers": [
+            {
+                "name": "while(motivation <= 0) blog",
+                "url": f"{base_url}/mcp/sse",
+                "transport": "sse"
+            }
+        ]
+    }
+    return json.dumps(payload), 200, {"Content-Type": "application/json"}
 
 
 @app.route('/')

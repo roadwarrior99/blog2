@@ -1,25 +1,24 @@
 {% extends 'base.html' %}
+
 {% block wordcloud %}
-<button class="accordion">Click to Show/Hide Tag Word Cloud</button>
+<button class="accordion">&#127991; Tags</button>
 <div class="panel">
- <div class="word-cloud">
+    <div class="word-cloud">
         {% for tag, count in tags.items() %}
             {% set font_size = (min_font_size + ((count - min_count) / (max_count - min_count)) * (max_font_size - min_font_size)) | round(2) %}
-            <span class="tag" style="font-size: {{ font_size }}px;"><a href="{{ url_for("get_tag",name=tag) }}">{{ tag }}</a></span>
+            <span class="tag" style="font-size: {{ font_size }}px;">
+                <a href="{{ url_for('get_tag', name=tag) }}">{{ tag }}</a>
+            </span>
         {% endfor %}
     </div>
 </div>
-    <script>
+<script>
     var acc = document.getElementsByClassName("accordion");
     for (var i = 0; i < acc.length; i++) {
         acc[i].addEventListener("click", function() {
             this.classList.toggle("active");
             var panel = this.nextElementSibling;
-            if (panel.style.display === "block") {
-                panel.style.display = "none";
-            } else {
-                panel.style.display = "block";
-            }
+            panel.style.display = panel.style.display === "block" ? "none" : "block";
         });
     }
 </script>
@@ -27,29 +26,35 @@
 
 {% block content %}
 
-{%for blog in posts%}
-    <div class="postbox" id="post{{blog['id']}}" data-keywords="{{blog['seo']}}">
-        <a href="/post/{{blog['id']}}"><span class="posttitle">{{blog['subject']}}</span></a>
-        <span class="postdate">{{ blog['date'] }}:</span>
-            {% if current_user.is_authenticated %}
-                <a href="{{ url_for("edit_blog_posts",number=blog['id']) }}">Edit</a>
-                <a href="{{ url_for("remove_blog_post",postid=blog['id']) }}">Remove</a>
-            {% endif %}
-        <br/>
-        <div class="article">
-             {{blog['body']|safe}}
-        </div>
+{% for blog in posts %}
+<div class="postbox" id="post{{ blog['id'] }}" data-keywords="{{ blog['seo'] }}">
+    <a href="/post/{{ blog['id'] }}"><span class="posttitle">{{ blog['subject'] }}</span></a>
+    {% if current_user.is_authenticated %}
+    <span class="post-admin-actions">
+        <a href="{{ url_for('edit_blog_posts', number=blog['id']) }}">Edit</a>
+        <a href="{{ url_for('remove_blog_post', postid=blog['id']) }}">Remove</a>
+    </span>
+    {% endif %}
+    <span class="postdate">{{ blog['date'] }}</span>
+    <div class="article">
+        {{ blog['body'] | safe }}
     </div>
-{%endfor%}
-    {%for blog in bottom_posts%}
-    <div class="postbox" id="post{{blog['id']}}" data-keywords="{{blog['seo']}}">
-        <a href="/post/{{blog['id']}}"><span class="posttitle">{{blog['subject']}}</span></a>
-        {% if current_user.is_authenticated %}
-                <a href="{{ url_for("edit_blog_posts",number=blog['id']) }}">Edit</a>
-                <a href="{{ url_for("remove_blog_post",postid=blog['id']) }}">Remove</a>
-        {% endif %}
+</div>
+{% endfor %}
 
-    </div>
-{%endfor%}
+{% if bottom_posts %}
+<h2 style="font-size:1rem;color:var(--muted);font-weight:600;margin:28px 0 12px;text-transform:uppercase;letter-spacing:.05em">Older posts</h2>
+{% for blog in bottom_posts %}
+<div class="postbox compact" id="post{{ blog['id'] }}" data-keywords="{{ blog['seo'] }}">
+    <a href="/post/{{ blog['id'] }}"><span class="posttitle">{{ blog['subject'] }}</span></a>
+    {% if current_user.is_authenticated %}
+    <span class="post-admin-actions">
+        <a href="{{ url_for('edit_blog_posts', number=blog['id']) }}">Edit</a>
+        <a href="{{ url_for('remove_blog_post', postid=blog['id']) }}">Remove</a>
+    </span>
+    {% endif %}
+</div>
+{% endfor %}
+{% endif %}
 
 {% endblock %}

@@ -97,6 +97,24 @@
   </div>
 </div>
 
+<!-- Expiration modal -->
+<div id="expiration-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Set Expiration Date</h3>
+    <input type="hidden" id="expiration-key">
+    <p id="expiration-file-label" style="font-size:0.85rem;color:#555;word-break:break-all;margin:0 0 10px"></p>
+    <label>Expires on</label>
+    <input type="date" id="expiration-date-input"
+      style="width:100%;padding:8px;border:1px solid #ccc;border-radius:5px;font-size:.95rem;box-sizing:border-box;margin-top:4px"
+      onkeydown="if(event.key==='Escape')closeExpirationModal()">
+    <div class="modal-actions">
+      <button class="modal-btn-primary" onclick="submitExpiration()">Save</button>
+      <button class="modal-btn-secondary" onclick="clearExpiration()">Clear</button>
+      <button class="modal-btn-secondary" onclick="closeExpirationModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Create folder modal -->
 <div id="folder-modal" class="modal-overlay">
   <div class="modal-box">
@@ -148,6 +166,9 @@
         <label style="display:flex;align-items:center;gap:4px">
           <input type="checkbox" name="ReMuxMovToMP4"> Remux .mov→.mp4
         </label>
+        <label style="display:flex;align-items:center;gap:4px">
+          Expires: <input type="date" name="expires_at" style="padding:6px;border:1px solid #ccc;border-radius:4px">
+        </label>
         <button type="submit" style="padding:8px 18px;background:#005f99;color:white;border:none;border-radius:5px;cursor:pointer">Upload</button>
       </div>
     </form>
@@ -198,6 +219,9 @@
         <div class="media-name" title="{{ Key }}">{{ short_name }}</div>
         {% if not is_folder %}
           <div class="media-meta">{{ obj.Size | filesizeformat }}</div>
+          {% if Key in expirations %}
+          <div class="media-meta" style="color:#b26a00">⏳ expires {{ expirations[Key] }}</div>
+          {% endif %}
         {% endif %}
       </div>
 
@@ -205,6 +229,8 @@
         {% if not is_folder %}
           <button class="btn-sm btn-copy" data-key="{{ Key }}" onclick="copyUrl(this)" title="Copy CDN URL">🔗</button>
           <button class="btn-sm btn-rename" data-key="{{ Key }}" onclick="openRenameModal(this)" title="Rename">✏️</button>
+          <button class="btn-sm" data-key="{{ Key }}" data-expires="{{ expirations.get(Key, '') }}" onclick="openExpirationModal(this)"
+            title="Set expiration date" style="background:#f0e6ff;color:#6a0dad;border-color:#d8b4fe">⏳</button>
           <input type="checkbox" name="selected_files" value="{{ Key }}" form="bulkForm"
             style="margin-left:auto;cursor:pointer" title="Select for bulk action">
         {% endif %}
@@ -322,6 +348,73 @@
     tf.style.display = this.value === 'move' ? 'inline-block' : 'none';
     tf.required = this.value === 'move';
   });
+
+  // ── Expiration modal ────────────────────────────────────────────────────────
+  function openExpirationModal(btn) {
+    const key = btn.dataset.key;
+    document.getElementById('expiration-key').value = key;
+    document.getElementById('expiration-file-label').textContent = key;
+    document.getElementById('expiration-date-input').value = btn.dataset.expires || '';
+    document.getElementById('expiration-modal').classList.add('open');
+    document.getElementById('expiration-date-input').focus();
+  }
+  function closeExpirationModal() {
+    document.getElementById('expiration-modal').classList.remove('open');
+  }
+  function submitExpiration() {
+    const key = document.getElementById('expiration-key').value;
+    const expires_at = document.getElementById('expiration-date-input').value;
+    if (!expires_at) { alert('Please pick a date.'); return; }
+    closeExpirationModal();
+    fetch('/public_content/api/set_expiration', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ s3_key: key, expires_at })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        updateCardExpiration(key, expires_at);
+        showAlert(`Expiration set to ${expires_at} for "${key}"`, 'success');
+      } else showAlert(d.message || 'Failed to set expiration', 'error');
+    })
+    .catch(() => showAlert('Failed to set expiration', 'error'));
+  }
+  function clearExpiration() {
+    const key = document.getElementById('expiration-key').value;
+    closeExpirationModal();
+    fetch('/public_content/api/remove_expiration', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ s3_key: key })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        updateCardExpiration(key, '');
+        showAlert(`Expiration cleared for "${key}"`, 'success');
+      } else showAlert(d.message || 'Failed to clear expiration', 'error');
+    })
+    .catch(() => showAlert('Failed to clear expiration', 'error'));
+  }
+  function updateCardExpiration(key, expires_at) {
+    const btn = document.querySelector(`.btn-sm[data-key="${CSS.escape(key)}"][data-expires]`);
+    if (!btn) return;
+    btn.dataset.expires = expires_at;
+    const card = btn.closest('.media-card');
+    let expDiv = card.querySelector('.expiration-label');
+    if (expires_at) {
+      if (!expDiv) {
+        expDiv = document.createElement('div');
+        expDiv.className = 'media-meta expiration-label';
+        expDiv.style.color = '#b26a00';
+        card.querySelector('.media-info').appendChild(expDiv);
+      }
+      expDiv.textContent = '⏳ expires ' + expires_at;
+    } else if (expDiv) {
+      expDiv.remove();
+    }
+  }
 
   // ── Alert bar ───────────────────────────────────────────────────────────────
   function showAlert(msg, type) {
