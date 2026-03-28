@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chunky Cutting boards weekend 1 — cmh.sh</title>
+  <meta name="description" content="First weekend on chunky cutting Boards.">
+  <meta name="keywords" content="woodworking, cuttingboard">
+  <link rel="canonical" href="https://blog.cmh.sh/post/183">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8; color: #1a1a2e; line-height: 1.6;
+    }
+    header {
+      background: #005f99; color: white; padding: 12px 20px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    header a { color: white; text-decoration: none; font-size: 0.9rem; opacity: .8; }
+    header a:hover { opacity: 1; }
+    .container { max-width: 820px; margin: 32px auto; padding: 0 16px; }
+    .post-full {
+      background: white; border-radius: 10px; padding: 28px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+    }
+    h1 { font-size: 1.6rem; margin: 0 0 6px; color: #005f99; }
+    .meta { font-size: 0.8rem; color: #777; margin-bottom: 18px; }
+    .body { font-size: 0.97rem; line-height: 1.7; }
+    .body img { max-width: 100%; height: auto; border-radius: 4px; }
+    .body pre { overflow-x: auto; background: #f4f4f4; border-radius: 6px; padding: 14px; }
+    .body p { margin: 0 0 12px; }
+    .body h2, .body h3 { margin: 20px 0 8px; }
+    .tags { margin-top: 20px; }
+    .spa-link {
+      display: inline-block; margin-top: 24px;
+      padding: 8px 18px; background: #005f99; color: white;
+      border-radius: 6px; text-decoration: none; font-size: 0.9rem;
+    }
+    .spa-link:hover { background: #004d80; }
+    footer {
+      text-align: center; padding: 24px 16px; font-size: 0.8rem; color: #999;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>cmh.sh</strong>
+    <a href="https://baas.cmh.sh/index.html">&#8592; All posts</a>
+  </header>
+  <div class="container">
+    <article class="post-full">
+      <h1>Chunky Cutting boards weekend 1</h1>
+      <div class="meta">1/29/2023</div>
+      <div class="body"><img src="images/02D4554E-F161-4971-B17A-F5FC6C20B7B9.jpeg" alt="cutting board" class="imageright"/><p>I got a late start Saturday and as if the vibe of the morning was following into the workshop, drama followed. This is the first time I've seen my miter saw bind up cutting anything. Typically it goes right through whatever you put under it's blade. The same figured grain also proved to be too much for the plainer as it too spit out the hard maple burnt to a crisp. After a lot of hang planning and a lot of standing, I resumed work on the first of five cutting boards. I decided on resawing the walnut to the thickness I wanted for the strips going through the cutting board. I manage to forget to tighten the band saw blade before I started cutting. Figured it out pretty quickly and adjusted to give myself more room for jointing. I ended up with an extra strip of walnut 3x a bit less than quarter of an inch. I'm thinking I may use this strip in some sort of bent lamination if I'm feeling adventures when i get toward the end of this project. I won't get to really see how this first glue up went until next weekend. Hopefully there is less drama then.
+<a href="https://www.tiktok.com/@makersganamake/video/7194235534158466346">A weekend of work in 3 minutes.</a>
+</p>
+</div>
+      <div class="tags"><a href="https://blog.cmh.sh/tag/woodworking" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">woodworking</a> <a href="https://blog.cmh.sh/tag/cuttingboard" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">cuttingboard</a></div>
+      <a class="spa-link" href="https://baas.cmh.sh/index.html">&#8592; Back to all posts</a>
+    </article>
+  </div>
+  <footer>&copy; cmh.sh</footer>
+</body>
+</html>

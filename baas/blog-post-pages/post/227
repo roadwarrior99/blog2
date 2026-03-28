@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adventures in NginX — cmh.sh</title>
+  <meta name="description" content="Adventures in NginX">
+  <meta name="keywords" content="aws,docker,containers,ecs,nginx">
+  <link rel="canonical" href="https://blog.cmh.sh/post/227">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8; color: #1a1a2e; line-height: 1.6;
+    }
+    header {
+      background: #005f99; color: white; padding: 12px 20px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    header a { color: white; text-decoration: none; font-size: 0.9rem; opacity: .8; }
+    header a:hover { opacity: 1; }
+    .container { max-width: 820px; margin: 32px auto; padding: 0 16px; }
+    .post-full {
+      background: white; border-radius: 10px; padding: 28px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+    }
+    h1 { font-size: 1.6rem; margin: 0 0 6px; color: #005f99; }
+    .meta { font-size: 0.8rem; color: #777; margin-bottom: 18px; }
+    .body { font-size: 0.97rem; line-height: 1.7; }
+    .body img { max-width: 100%; height: auto; border-radius: 4px; }
+    .body pre { overflow-x: auto; background: #f4f4f4; border-radius: 6px; padding: 14px; }
+    .body p { margin: 0 0 12px; }
+    .body h2, .body h3 { margin: 20px 0 8px; }
+    .tags { margin-top: 20px; }
+    .spa-link {
+      display: inline-block; margin-top: 24px;
+      padding: 8px 18px; background: #005f99; color: white;
+      border-radius: 6px; text-decoration: none; font-size: 0.9rem;
+    }
+    .spa-link:hover { background: #004d80; }
+    footer {
+      text-align: center; padding: 24px 16px; font-size: 0.8rem; color: #999;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>cmh.sh</strong>
+    <a href="https://baas.cmh.sh/index.html">&#8592; All posts</a>
+  </header>
+  <div class="container">
+    <article class="post-full">
+      <h1>Adventures in NginX</h1>
+      <div class="meta">2025-01-25</div>
+      <div class="body">Starting last weekend I started working on building out a container that could take the place of my pair of Application Load Balancers that AWS was providing. The ALBs work great, but at $30 a month for the pair they are beyond overkill and are more expensive than all of my servers. Something else that I learned was that Amazon Q when integrated with VS Code is very decent. It can use the files open as a source of input and often has valuable troubleshooting advice. Also I'd give a shout out a Twitch user rajeshmasterofthecows that joined my stream this morning, asked good questions, and pitched in some useful advice. 
+
+<pre>
+<code>
+user  nginx;
+worker_processes  auto;
+
+error_log  /var/log/nginx/error.log notice;
+pid        /var/run/nginx.pid;
+
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    upstream vacuumflask {
+        server staticendpoint:8080  max_fails=3 fail_timeout=30s;
+        server dynamicendpoint:8080  max_fails=3 fail_timeout=30s;
+        least_conn; # Least connections
+    }
+    upstream blog1
+    {
+        server dynamicendpoint:80  max_fails=3 fail_timeout=30s;
+    }
+
+
+    server {
+        listen 80;
+        server_name blog4.cmh.sh;
+        return 301 https://$server_name$request_uri;
+    }
+
+    server {
+        listen 443 ssl;
+        server_name blog.cmh.sh blog4.cmh.sh;
+        location / {
+            proxy_pass http://vacuumflask;
+            proxy_set_header Host $host;  # Add this line to forward the original host
+            proxy_set_header    X-Real-IP        $remote_addr;
+            proxy_set_header    X-Forwarded-For  $proxy_add_x_forwarded_for;
+        }
+        #proxy_set_header Host $host;
+        ssl_certificate /tmp/ssl/wild.cmh.sh.crt;
+        ssl_certificate_key /tmp/ssl/wild.cmh.sh.key;
+        ssl_session_cache shared:SSL:1m;
+        ssl_session_timeout 120m;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+        ssl_prefer_server_ciphers off;
+
+        
+        # Basic security headers
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Frame-Options SAMEORIGIN;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+    }
+
+    server {
+        listen 443 ssl;
+        server_name cmh.sh ots.cmh.sh;
+        location / {
+            proxy_pass http://blog1;
+            proxy_set_header    X-Real-IP        $remote_addr;
+            proxy_set_header    X-Forwarded-For  $proxy_add_x_forwarded_for;
+            proxy_set_header Host $host;  # Add this line to forward the original host
+        }
+        #proxy_set_header Host $host;
+        ssl_certificate /tmp/ssl/wild.cmh.sh.crt;
+        ssl_certificate_key /tmp/ssl/wild.cmh.sh.key;
+        ssl_session_cache shared:SSL:1m;
+        ssl_session_timeout 120m;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+        ssl_prefer_server_ciphers off;
+
+        
+        # Basic security headers
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Frame-Options SAMEORIGIN;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+    }
+    server {
+        listen 443 ssl;
+        server_name oldblog
+        location / {
+            proxy_pass http://blog1;
+            proxy_set_header    X-Real-IP        $remote_addr;
+            proxy_set_header    X-Forwarded-For  $proxy_add_x_forwarded_for;
+            proxy_set_header Host $host;  # Add this line to forward the original host
+        }
+        #proxy_set_header Host $host;
+        ssl_certificate /tmp/ssl/wild.oldblog.dev.25.pem;
+        ssl_certificate_key /tmp/ssl/wild.oldblog.key;
+        ssl_session_cache shared:SSL:1m;
+        ssl_session_timeout 120m;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECtail -f /var/log/nginx/error.log
+        tail -f /var/log/nginx/access.log
+        DHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+        ssl_prefer_server_ciphers off;
+
+        
+        # Basic security headers
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Frame-Options SAMEORIGIN;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+    }
+
+}
+</code></pre>
+<h4>deploy nginx and dns config for container restart</h4>
+<pre>
+<code>
+#!/bin/bash
+destination="vacuum-lb-push"
+zipPrefix="vacuum-lb-"
+zipFileName="$zipPrefix$(date +%Y%m%d).zip"
+mkdir $destination
+while IFS= read -r file; do
+    cp $file $destination/$file
+done < ship_list.txt
+cd $destination
+zip -r $zipFileName *
+mv $zipFileName ../.
+cd ../
+rm -rf $destination
+scp $zipFileName project:blog2/$zipFileName
+ssh project "cd /media/vacuum-data/vacuum-lb; sudo mv /home/ubuntu/blog2/$zipFileName /media/vacuum-data/vacuum-lb/$zipFileName; sudo bash unpack.sh $zipFileName"
+rm $zipFileName
+</code>
+</pre></div>
+      <div class="tags"><a href="https://blog.cmh.sh/tag/aws" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">aws</a> <a href="https://blog.cmh.sh/tag/docker" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">docker</a> <a href="https://blog.cmh.sh/tag/containers" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">containers</a> <a href="https://blog.cmh.sh/tag/ecs" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">ecs</a> <a href="https://blog.cmh.sh/tag/nginx" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">nginx</a></div>
+      <a class="spa-link" href="https://baas.cmh.sh/index.html">&#8592; Back to all posts</a>
+    </article>
+  </div>
+  <footer>&copy; cmh.sh</footer>
+</body>
+</html>

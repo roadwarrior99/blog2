@@ -49,6 +49,26 @@ timeobj = datetime.datetime.now()
 # Configure the Flask logger
 logger = logging.getLogger(__name__)
 cloud_watch_stream_name = "vacuum_flask_log_{0}_{1}".format(platform.node(),timeobj.strftime("%Y%m%d%H%M%S"))
+
+
+app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB in bytes
+app.config['SESSION_REDIS'] = redis.from_url(os.environ.get('REDIS_SERVER'))
+redis_client = redis.from_url(os.environ.get('REDIS_SERVER'))
+API_TOKEN_TTL = 3600  # 1 hour
+API_TOKEN_PREFIX = "api_token:"
+
+auth = Blueprint('auth', __name__)
+login_manager = flask_login.LoginManager(app)
+app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+db_path = "data/vacuumflask.db"
+ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
+good_list = "data/goodlist.txt"
+#s3_content = list_files()
+
+
 if os.environ.get("AWS_PROFILE_NAME"):
     boto3.setup_default_session(profile_name=os.environ.get("AWS_PROFILE_NAME"), region_name=os.environ.get("AWS_REGION_NAME"))
     logger.info("AWS_PROFILE set to {0}".format(os.environ.get("AWS_PROFILE_NAME")))
@@ -86,22 +106,85 @@ for key in sec_keys:
         logger.info(f"Local environment variable {key} found, overriding secrets manager value.")
 
 internal_bucket = os.environ.get("INTERNAL_BUCKET_NAME")
-app.config['SESSION_TYPE'] = 'redis'
-app.config['SESSION_PERMANENT'] = False
-app.config['SESSION_USE_SIGNER'] = True
-app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB in bytes
-app.config['SESSION_REDIS'] = redis.from_url(os.environ.get('REDIS_SERVER'))
-auth = Blueprint('auth', __name__)
-login_manager = flask_login.LoginManager(app)
-app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
-db_path = "data/vacuumflask.db"
-ip_ban = IpBan(ban_seconds=604800) # 7 day ban for f'ing around.
-good_list = "data/goodlist.txt"
-#s3_content = list_files()
+
+def delete_expiration_record(s3_key):
+    conn = sqlite3.connect(db_path)
+    conn.execute("DELETE FROM media_expiration WHERE s3_key=?", [s3_key])
+    conn.commit()
+    conn.close()
+
+
+def ensure_expiration_table():
+    conn = sqlite3.connect(db_path)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS media_expiration (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            s3_key TEXT UNIQUE NOT NULL,
+            expires_at TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
 
 #server_session = session(app)
 
+ensure_expiration_table()
 
+
+def require_auth(f):
+    """Decorator that accepts either a Flask-Login session or an Authorization: Bearer <token> header."""
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:]
+            stored = redis_client.get(API_TOKEN_PREFIX + token)
+            if stored:
+                return f(*args, **kwargs)
+            return json.dumps({'success': False, 'message': 'Invalid or expired token'}), 401
+        if flask_login.current_user.is_authenticated:
+            return f(*args, **kwargs)
+        return json.dumps({'success': False, 'message': 'Authentication required'}), 401
+    return decorated
+
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json() or {}
+    otpin = data.get('otp', '')
+    totp = pyotp.TOTP(secrets_dict['OTS_SECRET'])
+    otp_valid = totp.verify(otpin)
+
+    # API key salt path — for headless callers (e.g. Lambda)
+    api_key_salt = data.get('api_key_salt', '')
+    if api_key_salt:
+        if api_key_salt == secrets_dict['VACUUMAPIKEYSALT'] and otp_valid:
+            token = secrets.token_urlsafe(32)
+            redis_client.setex(API_TOKEN_PREFIX + token, API_TOKEN_TTL, 'api')
+            logger.info("API token issued via api_key_salt")
+            return json.dumps({'success': True, 'token': token, 'expires_in': API_TOKEN_TTL})
+        logger.warning("Failed API login via api_key_salt")
+        ip_ban.add()
+        return json.dumps({'success': False, 'message': 'Invalid credentials'}), 401
+
+    # Username/password path — for interactive callers
+    username = data.get('username', '')
+    password = data.get('password', '')
+    if not username or not password or not otpin:
+        return json.dumps({'success': False, 'message': 'username, password, and otp are required'}), 400
+    pwd_hashed = hash.hash(password, secrets_dict['VACUUMSALT'])
+    if pwd_hashed == secrets_dict['VACUUMROOTHASH'] and username == secrets_dict['VACUUMROOTUSER'] and otp_valid:
+        token = secrets.token_urlsafe(32)
+        redis_client.setex(API_TOKEN_PREFIX + token, API_TOKEN_TTL, username)
+        logger.info(f"API token issued for {username}")
+        return json.dumps({'success': True, 'token': token, 'expires_in': API_TOKEN_TTL})
+    logger.warning(f"Failed API login for username: {username}")
+    ip_ban.add()
+    return json.dumps({'success': False, 'message': 'Invalid credentials'}), 401
 
 
 @login_manager.user_loader
@@ -333,6 +416,7 @@ def public_content_file_upload():
                and request.form.get('new_filename')\
                 and request.form.get('new_filename') != "":
             file.filename = request.form.get('new_filename')
+        expires_at = request.form.get('expires_at', '').strip()
         new_img = []
         if request.form.get('Mobile'):
             logger.info("Mobile image processing.")
@@ -350,14 +434,28 @@ def public_content_file_upload():
             logger.info(f"S3 Start Transfer to internal bucket {internal_bucket} of file {file.filename}")
             s3_upload_file(file,file.filename,internal_bucket)
             return render_template("save.html")
+        uploaded_keys = []
         if len(new_img) > 0:
             for img_file,filename in new_img:
                 if img_file:
                     s3_upload_file(img_file, filename)
+                    uploaded_keys.append(secure_filename(filename))
                 else:
                     print("No file to save.")
         else:
             s3_upload_file(file,file.filename)
+            uploaded_keys.append(secure_filename(file.filename))
+        if expires_at:
+            conn = sqlite3.connect(db_path)
+            for s3_key in uploaded_keys:
+                conn.execute("""
+                    INSERT INTO media_expiration (s3_key, expires_at, created_at)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(s3_key) DO UPDATE SET expires_at=excluded.expires_at
+                """, [s3_key, expires_at, datetime.datetime.utcnow().isoformat()])
+                logger.info(f"Expiration set on upload for {s3_key}: {expires_at}")
+            conn.commit()
+            conn.close()
         logger.info("S3 file uploaded: {0}".format(file.filename))
         return render_template("save.html")
     else:
@@ -368,9 +466,17 @@ def public_content_file_upload():
 @app.route('/public_content', methods=['GET'])
 @flask_login.login_required
 def public_content():
-    #if s3_content and len(s3_content) == 0:
     s3_content = list_files()
-    return render_template("public_content.html", contents=s3_content)
+    # Sort: folders first (keys ending in '/'), then files — both groups alphabetical
+    sorted_content = dict(
+        sorted(s3_content.items(), key=lambda kv: (0 if kv[0].endswith('/') else 1, kv[0].lower()))
+    )
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT s3_key, expires_at FROM media_expiration")
+    expirations = {row[0]: row[1] for row in cur.fetchall()}
+    conn.close()
+    return render_template("public_content.html", contents=sorted_content, expirations=expirations)
 
 @app.route('/public_content/create_folder', methods=['POST'])
 @flask_login.login_required
@@ -380,6 +486,25 @@ def create_folder_route():
         create_folder(folder_name)
         logger.info(f"Created folder: {folder_name}")
     return redirect('/public_content')
+
+
+@app.route('/public_content/api/create_folder', methods=['POST'])
+@flask_login.login_required
+def api_create_folder():
+    data = request.get_json() or {}
+    folder_name = data.get('folder_name', '').strip()
+    if not folder_name:
+        return json.dumps({'success': False, 'message': 'folder_name is required'}), 400
+    try:
+        create_folder(folder_name)
+        logger.info(f"Created folder: {folder_name}")
+        if not folder_name.endswith('/'):
+            folder_name += '/'
+        return json.dumps({'success': True, 'folder_name': folder_name})
+    except Exception as e:
+        logger.exception("Create folder failed")
+        return json.dumps({'success': False, 'message': str(e)}), 500
+
 
 @app.route('/public_content/delete_folder', methods=['POST'])
 @flask_login.login_required
@@ -402,6 +527,7 @@ def bulk_action():
     if action == 'delete':
         for file_key in selected_files:
             s3_remove_file(file_key)
+            delete_expiration_record(file_key)
             logger.info(f"Bulk deleted: {file_key}")
     
     elif action == 'move':
@@ -457,11 +583,131 @@ def public_content_remove(Key):
     s3_content = list_files()
     if Key in s3_content:
         s3_remove_file(Key)
+        delete_expiration_record(Key)
         logger.info("Removed from S3: {0}".format(Key))
         s3_content = list_files()
         return render_template("save.html")
     else:
         return render_template("file_error.html")
+
+@app.route('/public_content/api/rename', methods=['POST'])
+@flask_login.login_required
+def api_rename():
+    data = request.get_json() or {}
+    old_key = data.get('old_key', '')
+    new_key = data.get('new_key', '')
+    if not old_key or not new_key:
+        return json.dumps({'success': False, 'message': 'old_key and new_key are required'}), 400
+    try:
+        mv_file(old_key, new_key)
+        logger.info(f"Renamed {old_key} -> {new_key}")
+        return json.dumps({'success': True})
+    except Exception as e:
+        logger.exception("Rename failed")
+        return json.dumps({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/public_content/api/delete', methods=['POST'])
+@flask_login.login_required
+def api_delete():
+    data = request.get_json() or {}
+    key = data.get('key', '')
+    if not key:
+        return json.dumps({'success': False, 'message': 'key is required'}), 400
+    try:
+        s3_remove_file(key)
+        delete_expiration_record(key)
+        logger.info(f"Deleted {key}")
+        return json.dumps({'success': True})
+    except Exception as e:
+        logger.exception("Delete failed")
+        return json.dumps({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/public_content/api/set_expiration', methods=['POST'])
+@flask_login.login_required
+def set_media_expiration():
+    data = request.get_json() or {}
+    s3_key = data.get('s3_key', '').strip()
+    expires_at = data.get('expires_at', '').strip()
+    if not s3_key or not expires_at:
+        return json.dumps({'success': False, 'message': 's3_key and expires_at are required'}), 400
+    conn = sqlite3.connect(db_path)
+    conn.execute("""
+        INSERT INTO media_expiration (s3_key, expires_at, created_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(s3_key) DO UPDATE SET expires_at=excluded.expires_at
+    """, [s3_key, expires_at, datetime.datetime.utcnow().isoformat()])
+    conn.commit()
+    conn.close()
+    logger.info(f"Set expiration for {s3_key} to {expires_at}")
+    return json.dumps({'success': True})
+
+
+@app.route('/public_content/api/expiration/<path:s3_key>', methods=['GET'])
+@flask_login.login_required
+def get_media_expiration(s3_key):
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT expires_at FROM media_expiration WHERE s3_key=?", [s3_key])
+    row = cur.fetchone()
+    conn.close()
+    return json.dumps({'success': True, 'expires_at': row[0] if row else None})
+
+
+@app.route('/public_content/api/remove_expiration', methods=['POST'])
+@flask_login.login_required
+def remove_media_expiration():
+    data = request.get_json() or {}
+    s3_key = data.get('s3_key', '').strip()
+    if not s3_key:
+        return json.dumps({'success': False, 'message': 's3_key is required'}), 400
+    conn = sqlite3.connect(db_path)
+    conn.execute("DELETE FROM media_expiration WHERE s3_key=?", [s3_key])
+    conn.commit()
+    conn.close()
+    logger.info(f"Removed expiration for {s3_key}")
+    return json.dumps({'success': True})
+
+
+@app.route('/admin/cleanup_expired', methods=['POST'])
+@require_auth
+def cleanup_expired_media():
+    today = datetime.datetime.utcnow().strftime('%Y-%m-%d')
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT s3_key FROM media_expiration WHERE expires_at <= ?", [today])
+    expired = [row[0] for row in cur.fetchall()]
+    deleted = []
+    failed = []
+    for s3_key in expired:
+        try:
+            s3_remove_file(s3_key)
+            conn.execute("DELETE FROM media_expiration WHERE s3_key=?", [s3_key])
+            deleted.append(s3_key)
+            logger.info(f"Expired media deleted: {s3_key}")
+        except Exception as e:
+            failed.append(s3_key)
+            logger.error(f"Failed to delete expired media {s3_key}: {e}")
+    conn.commit()
+    conn.close()
+    return json.dumps({'success': True, 'deleted': deleted, 'failed': failed})
+
+
+@app.route('/.well-known/mcp.json')
+def mcp_discovery():
+    base_url = os.environ.get("APP_BASE_URL", request.host_url.rstrip("/"))
+    payload = {
+        "mcpServers": [
+            {
+                "name": "while(motivation <= 0) blog",
+                "url": f"{base_url}/mcp/sse",
+                "transport": "sse"
+            }
+        ]
+    }
+    return json.dumps(payload), 200, {"Content-Type": "application/json"}
+
 
 @app.route('/')
 def index():

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fully automated K3S hosting — cmh.sh</title>
+  <meta name="description" content="Fully automated highly available k3s hosting in aws.">
+  <meta name="keywords" content="k3s,kubernetes,helm,bash,aws">
+  <link rel="canonical" href="https://blog.cmh.sh/post/230">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8; color: #1a1a2e; line-height: 1.6;
+    }
+    header {
+      background: #005f99; color: white; padding: 12px 20px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    header a { color: white; text-decoration: none; font-size: 0.9rem; opacity: .8; }
+    header a:hover { opacity: 1; }
+    .container { max-width: 820px; margin: 32px auto; padding: 0 16px; }
+    .post-full {
+      background: white; border-radius: 10px; padding: 28px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+    }
+    h1 { font-size: 1.6rem; margin: 0 0 6px; color: #005f99; }
+    .meta { font-size: 0.8rem; color: #777; margin-bottom: 18px; }
+    .body { font-size: 0.97rem; line-height: 1.7; }
+    .body img { max-width: 100%; height: auto; border-radius: 4px; }
+    .body pre { overflow-x: auto; background: #f4f4f4; border-radius: 6px; padding: 14px; }
+    .body p { margin: 0 0 12px; }
+    .body h2, .body h3 { margin: 20px 0 8px; }
+    .tags { margin-top: 20px; }
+    .spa-link {
+      display: inline-block; margin-top: 24px;
+      padding: 8px 18px; background: #005f99; color: white;
+      border-radius: 6px; text-decoration: none; font-size: 0.9rem;
+    }
+    .spa-link:hover { background: #004d80; }
+    footer {
+      text-align: center; padding: 24px 16px; font-size: 0.8rem; color: #999;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>cmh.sh</strong>
+    <a href="https://baas.cmh.sh/index.html">&#8592; All posts</a>
+  </header>
+  <div class="container">
+    <article class="post-full">
+      <h1>Fully automated K3S hosting</h1>
+      <div class="meta">2025-03-17</div>
+      <div class="body">I've spent the last four days implementing k3s in my auto scale group in AWS. With the cost of the AKS control plane being $70 a month, creative solutions that still allowed enhanced automation and control are desired. Along the way I automated the process of creating new auto scale templates. With a Postgres 15.4 rds servers-less back-end for backing up the k3s system. When new instances are added they are immediately acclimated into the k3s system and everything is load balanced by the Traefik service on all nodes. Coupled with some automated dns management to handle changes in public / private ips. One script handles new instances via user data and another monitors from the outside and updates public dns to ensure that any new instances are folded in. <pre><code>
+source /media/vacuum-data/update_internal_dns_auto.sh
+
+#Kubernetes related
+sudo curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+
+mkdir /tmp/working
+chmod 777 /tmp/working
+
+
+K3S_URL=$(cat /media/vacuum-data/k3s/k3s_url)
+K3S_TOKEN=$(cat /media/vacuum-data/k3s/k3s_token)
+
+# Get the secret value and store it in a variable
+secret_string=$(aws secretsmanager get-secret-value \
+    --secret-id "$SECRET_ARN" \
+    --query 'SecretString' \
+    --output text)
+# Parse the JSON and extract the values using jq
+# Note: You'll need to install jq if not already installed: sudo yum install -y jq
+K3S_POSTGRES_USER=$(echo $secret_string | jq -r '.K3S_POSTGRES_USER')
+K3S_POSTGRES_PASSWORD=$(echo $secret_string | jq -r '.K3S_POSTGRES_PASSWORD')
+POSTGRESS_SERVER=$(echo $secret_string | jq -r '.POSTGRES_SERVER')
+con="postgres://$K3S_POSTGRES_USER:$K3S_POSTGRES_PASSWORD@$POSTGRESS_SERVER:5432/kubernetes"
+postgres_conn_k3s=${con}
+echo "postgres_conn_k3s is set to $postgres_conn_k3s"
+
+# Download the RDS CA bundle
+curl -O https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+
+# For k3s configuration, you'll want to move it to a permanent location
+sudo mkdir -p /etc/kubernetes/pki/
+sudo mv global-bundle.pem /etc/kubernetes/pki/rds-ca.pem
+
+#ECS related
+if [ -d /etc/ecs ]; then
+  echo "ECS_CLUSTER=vacuumflask_workers" > /etc/ecs/ecs.config
+  echo "ECS_BACKEND_HOST=" >> /etc/ecs/ecs.config
+  #TODO: set hostname; set name in /etc/hosts
+  #TODO: register with ALB.
+fi
+
+MAX_ATTEMPTS=60  # 5 minutes maximum wait time
+ATTEMPT=0
+API_URL="https://vacuumhost1.internal.cmh.sh:6443"
+
+# Check if a k3s node is already online
+response=$(curl -s -o /dev/null -w "%{http_code}" \
+  --connect-timeout 5 \
+  --max-time 10 \
+  --insecure \
+  "$API_URL")
+if [ $? -eq 0 ] && [ "$response" -eq 401 ]; then
+  curl -sfL https://get.k3s.io | sh -s - server \
+    --token=${K3S_TOKEN} \
+    --datastore-endpoint=${postgres_conn_k3s} \
+    --log /var/log/k3s.log \
+    --tls-san=${API_URL} 
+else
+  # Install k3s with PostgreSQL as the datastore
+  #this is only if there isn't an existing k3s node
+  curl -sfL https://get.k3s.io | sh -s - server \
+    --write-kubeconfig-mode=644 \
+    --datastore-endpoint=${postgres_conn_k3s} \
+    --log /var/log/k3s.log \
+    --datastore-cafile=/etc/kubernetes/pki/rds-ca.pem \
+    --token=${K3S_TOKEN} \
+  #  --tls-san=${K3S_URL} \
+fi
+
+
+
+
+echo "Waiting for k3s API server to start at $API_URL..."
+
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+    # Perform curl with timeout and silent mode
+    response=$(curl -s -o /dev/null -w "%{http_code}" \
+        --connect-timeout 5 \
+        --max-time 10 \
+        --insecure \
+        "$API_URL")
+    
+    if [ $? -eq 0 ] && [ "$response" -eq 401 ]; then
+        echo "K3s API server is ready!"
+        break;
+    else
+        ATTEMPT=$((ATTEMPT + 1))
+        remaining=$((MAX_ATTEMPTS - ATTEMPT))
+        echo "Waiting... (got response code: $response, attempts remaining: $remaining)"
+        sleep 5
+    fi
+done
+if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+    echo "K3s API server did not start in time. Exiting."
+    exit 1
+fi
+
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+pwd=$(aws ecr get-login-password)
+echo $pwd | sudo docker login --username AWS --password-stdin 123456789.dkr.ecr.us-east-1.amazonaws.com
+kubectl delete secret regcred --namespace=default
+# Create a secret named 'regcred' in your cluster
+kubectl create secret docker-registry regcred \
+  --docker-server=123456789.dkr.ecr.us-east-1.amazonaws.com \
+  --docker-username=AWS \
+  --docker-password=${pwd} \
+  --namespace=default
+
+kubectl create secret tls firstlast-tls \
+  --cert=/media/vacuum-data/vacuum-lb/ssl/wild.firstlast.dev.25.pem \
+  --key=/media/vacuum-data/vacuum-lb/ssl/wild.firstlast.dev.25.key \
+  --namespace=default
+
+kubectl create secret tls cmh-tls \
+  --cert=/media/vacuum-data/vacuum-lb/ssl/wild.cmh.sh.crt \
+  --key=/media/vacuum-data/vacuum-lb/ssl/wild.cmh.sh.key \
+  --namespace=default
+
+
+helm repo add traefik https://traefik.github.io/charts
+helm repo update
+helm install traefik traefik/traefik --namespace traefik --create-namespace
+kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.10/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+
+cd /media/vacuum-data/k3s
+source /media/vacuum-data/k3s/setup-all.sh prod
+</code></pre></div>
+      <div class="tags"><a href="https://blog.cmh.sh/tag/k3s" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">k3s</a> <a href="https://blog.cmh.sh/tag/kubernetes" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">kubernetes</a> <a href="https://blog.cmh.sh/tag/helm" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">helm</a> <a href="https://blog.cmh.sh/tag/bash" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">bash</a> <a href="https://blog.cmh.sh/tag/aws" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">aws</a></div>
+      <a class="spa-link" href="https://baas.cmh.sh/index.html">&#8592; Back to all posts</a>
+    </article>
+  </div>
+  <footer>&copy; cmh.sh</footer>
+</body>
+</html>

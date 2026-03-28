@@ -1,0 +1,3 @@
+pyotp
+boto3
+watchtower

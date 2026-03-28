@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>One Time secret clone and dockerization — cmh.sh</title>
+  <meta name="description" content="One Time secret clone and dockerization">
+  <meta name="keywords" content="docker,one time secret, php, flask, waitress, bash">
+  <link rel="canonical" href="https://baas.cmh.sh/post/198/">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8; color: #1a1a2e; line-height: 1.6;
+    }
+    header {
+      background: #005f99; color: white; padding: 12px 20px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    header a { color: white; text-decoration: none; font-size: 0.9rem; opacity: .8; }
+    header a:hover { opacity: 1; }
+    .container { max-width: 820px; margin: 32px auto; padding: 0 16px; }
+    .post-full {
+      background: white; border-radius: 10px; padding: 28px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+    }
+    h1 { font-size: 1.6rem; margin: 0 0 6px; color: #005f99; }
+    .meta { font-size: 0.8rem; color: #777; margin-bottom: 18px; }
+    .body { font-size: 0.97rem; line-height: 1.7; }
+    .body img { max-width: 100%; height: auto; border-radius: 4px; }
+    .body pre { overflow-x: auto; background: #f4f4f4; border-radius: 6px; padding: 14px; }
+    .body p { margin: 0 0 12px; }
+    .body h2, .body h3 { margin: 20px 0 8px; }
+    .tags { margin-top: 20px; }
+    .spa-link {
+      display: inline-block; margin-top: 24px;
+      padding: 8px 18px; background: #005f99; color: white;
+      border-radius: 6px; text-decoration: none; font-size: 0.9rem;
+    }
+    .spa-link:hover { background: #004d80; }
+    footer {
+      text-align: center; padding: 24px 16px; font-size: 0.8rem; color: #999;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>cmh.sh</strong>
+    <a href="https://baas.cmh.sh/index.html">&#8592; All posts</a>
+  </header>
+  <div class="container">
+    <article class="post-full">
+      <h1>One Time secret clone and dockerization</h1>
+      <div class="meta">8/5/2024</div>
+      <div class="body">This weekend started by working on a "one time secret" clone for personal use. ChatGPT got me 80% of the way there and I spent the rest of the day tweaking and improving upon the code it wrote. Sunday I set about getting the v2 of my blog production ready by introducing waitress which is the recommended method for hosting python flask web applications and then containerizing the application so that it's easy to stay on the latest fully supported version of python which updates frequently. 
+Cool scripts from this past weekend:
+<div>docker file:</div>
+<pre class="code-block">
+<code class="language-bash">
+FROM public.ecr.aws/docker/library/python:3.12
+
+WORKDIR /tmp
+# Add sample application
+ADD app.py /tmp/app.py
+ADD objects.py /tmp/objects.py
+ADD hash.py /tmp/hash.py
+
+COPY templates /tmp/templates
+COPY static /tmp/static
+
+
+COPY requirements.txt requirements.txt
+
+RUN pip3 install -r requirements.txt
+
+EXPOSE 8080
+
+# Run it
+CMD [ "waitress-serve", "app:app" ]
+</code></pre>
+<div>build image and run with shared folder:</div>
+<pre class="code-block">
+<code class="language-bash">
+#!/bin/bash
+
+docker build --tag vacuumflask .
+imageid=$(docker image ls | grep -w "vacuumflask" | awk '{print $3}')
+docker run  --env-file "/home/colin/python/blog2/vacuumflask/.env" \
+--volume /home/colin/python/blog2/vacuumflask/data:/tmp/data \
+-p 8080:8080 \
+ "$imageid"
+</code></pre>
+<div>Build beanstalk zip:</div>
+<pre class="code-block">
+<code class="language-bash">
+#!/bin/bash
+destination="beanstalk/"
+zipPrefix="vacuumflask-"
+zipPostfix=$(date '+%Y%m%d')
+zipFileName="$zipPrefix$zipPostfix.zip"
+mkdir "$destination"
+cp -a templates/. "$destination/templates"
+cp -a static/. "$destination/static"
+cp app.py "$destination"
+cp Dockerfile "$destination"
+cp hash.py "$destination"
+cp objects.py "$destination"
+cp requirements.txt "$destination"
+cd "$destination"
+zip -r "../$zipFileName" "."
+cd ../
+rm -r "$destination"
+scp "$zipFileName" project:blog2
+scp docker-build-run.sh project:blog2
+ssh project
+</code></pre>
+
+Next weekend I'll need to figure out how to get it working with elastic-beanstalk and then work on feature parity.
+</div>
+      <div class="tags"><a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">docker</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">one time secret</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">php</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">flask</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">waitress</a> <a href="https://baas.cmh.sh/index.html#" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">bash</a></div>
+      <a class="spa-link" href="https://baas.cmh.sh/index.html">&#8592; Back to all posts</a>
+    </article>
+  </div>
+  <footer>&copy; cmh.sh</footer>
+</body>
+</html>

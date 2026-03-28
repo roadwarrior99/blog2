@@ -1,133 +1,427 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <div class="content">
-          {%  if filenotfound is defined %}
-              <h3> FILE NOT FOUND</h3>
-          {% endif %}
-        <h3>Public CDN Content</h3>
-        <a href="{{ url_for("public_content_gallery") }}">Gallery</a><br/>
-        
-        <!-- Folder Management -->
-        <div>
-          <h3>Create Folder:</h3>
-          <form method="POST" action="/public_content/create_folder">
-            <input type="text" name="folder_name" placeholder="Folder name" required>
-            <input type="submit" value="Create Folder">
-          </form>
-        </div>
+<style>
+  .media-page { padding: 16px; }
+  /* ── Card grid ── */
+  .media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .media-card {
+    background: white; border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .media-thumb {
+    width: 100%; height: 130px; object-fit: cover;
+    display: block; background: #f0f4f8;
+  }
+  .media-thumb-placeholder {
+    width: 100%; height: 130px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.5rem; background: #f0f4f8;
+  }
+  .media-info { padding: 8px 10px; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .media-folder-path { font-size: 0.68rem; color: #999; }
+  .media-name { font-size: 0.85rem; font-weight: 600; word-break: break-all; color: #1a1a2e; }
+  .media-meta { font-size: 0.72rem; color: #777; }
+  .media-actions { display: flex; gap: 5px; flex-wrap: wrap; padding: 6px 10px 10px; align-items: center; }
+  .btn-sm {
+    padding: 3px 8px; font-size: 0.75rem;
+    border-radius: 4px; cursor: pointer; border: 1px solid transparent;
+  }
+  .btn-copy   { background: #e0f0ff; color: #005f99; border-color: #b0d8f5; }
+  .btn-rename { background: #fff8e1; color: #b26a00; border-color: #ffe082; }
+  .btn-delete { background: #fde8e8; color: #c0392b; border-color: #f5b7b1; }
+  /* ── Toolbar ── */
+  .admin-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+  }
+  .toolbar-btn {
+    padding: 6px 14px; font-size: 0.85rem; border-radius: 5px;
+    cursor: pointer; border: 1px solid transparent;
+  }
+  .toolbar-btn-primary  { background: #005f99; color: white; }
+  .toolbar-btn-primary:hover  { background: #004d80; }
+  .toolbar-btn-secondary { background: #e0f0ff; color: #005f99; border-color: #b0d8f5; }
+  .toolbar-btn-secondary:hover { background: #c0e0f8; }
+  /* ── Collapsible sections ── */
+  .collapsible-section {
+    background: #f9f9f9; border: 1px solid #ddd;
+    border-radius: 6px; padding: 8px 14px; margin-bottom: 10px;
+  }
+  .collapsible-section summary { cursor: pointer; font-weight: 600; user-select: none; padding: 4px 0; }
+  .collapsible-section[open] { padding-bottom: 14px; }
+  .collapsible-section[open] summary { margin-bottom: 10px; }
+  /* ── Rename modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.4); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: white; border-radius: 10px; padding: 24px;
+    max-width: 480px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  }
+  .modal-box h3 { margin: 0 0 14px; color: #005f99; }
+  .modal-box input[type=text] {
+    width: 100%; padding: 8px; border: 1px solid #ccc;
+    border-radius: 5px; font-size: .95rem; box-sizing: border-box;
+  }
+  .modal-actions { margin-top: 14px; display: flex; gap: 10px; }
+  .modal-btn-primary { background: #005f99; color: white; border: none; padding: 8px 18px; border-radius: 5px; cursor: pointer; }
+  .modal-btn-secondary { background: #eee; border: none; padding: 8px 18px; border-radius: 5px; cursor: pointer; }
+  /* ── Alert ── */
+  #media-alert { padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; display: none; }
+  #media-alert.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; display: block; }
+  #media-alert.error   { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; display: block; }
+</style>
 
-        <div>
-          <h3>Upload your file here:</h3>
-          <form method="POST" action="/public_content" enctype=multipart/form-data>
-            <input type=file name=file>
-              <label for="new_filename">
-                <input type="text" name="new_filename">
-                Renamed File Name</label>
-            <input type=submit value=Upload>
-              <label class="picture-options">Mobile
-                  <input type="checkbox" name="Mobile">
-              </label>
-              <label class="picture-options">Discord
-                  <input type="checkbox" name="Discord">
-              </label>
-              <label class="picture-options">Remove Metadata
-                  <input type="checkbox" name="Metadata">
-              </label>
-              <label class="picture-options">Convert .mov to .mp4
-                  <input type="checkbox" name="ReMuxMovToMP4">
-              </label>
-          </form>
-        </div>
-
-        <!-- Bulk Actions -->
-        <div>
-          <h3>Bulk Actions:</h3>
-          <form id="bulkForm" method="POST" action="/public_content/bulk_action">
-            <select name="action" required>
-              <option value="">Select Action</option>
-              <option value="move">Move to Folder</option>
-              <option value="delete">Delete</option>
-            </select>
-            <input type="text" name="target_folder" placeholder="Target folder (for move)" style="display:none;" id="targetFolder">
-            <input type="submit" value="Execute" onclick="return confirmBulkAction()">
-          </form>
-        </div>
-
-        <div>
-          <h3>These are your uploaded files:</h3>
-          <p>Click on the filename to view the object. Use checkboxes for bulk actions.</p>
-          
-          <!-- Select All -->
-          <label>
-            <input type="checkbox" id="selectAll" onchange="toggleAll()"> Select All
-          </label>
-          
-          <ul>
-            {% for Key, obj in contents.items() %}
-              <li class="linkcollectionli">
-                <input type="checkbox" name="selected_files" value="{{ Key }}" form="bulkForm">
-                {% if Key.endswith('/') %}
-                  <strong>📁 {{ Key }}</strong>
-                  <button onclick="deleteFolder('{{ Key }}')">Delete Folder</button>
-                {% else %}
-                  <a href="{{ url_for("public_content_content", Key=Key) }}"> {{ obj.Key }} </a>
-                  <span class="publink">https://pub.cmh.sh/{{ Key }}</span>
-                  <span class="copylink" onclick="copyToClipboard('https://pub.cmh.sh/{{ Key }}')">Copy URL</span>
-                {% endif %}
-              </li>
-            {% endfor %}
-          </ul>
-        </div>
+<!-- Rename modal -->
+<div id="rename-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Rename File</h3>
+    <input type="hidden" id="rename-old-key">
+    <label>New name</label>
+    <input type="text" id="rename-new-key"
+      onkeydown="if(event.key==='Enter')submitRename();if(event.key==='Escape')closeRenameModal()">
+    <div class="modal-actions">
+      <button class="modal-btn-primary" onclick="submitRename()">Rename</button>
+      <button class="modal-btn-secondary" onclick="closeRenameModal()">Cancel</button>
     </div>
+  </div>
+</div>
 
-    <script>
-      function copyToClipboard(text) {
-        const tempInput = document.createElement('input');
-        tempInput.value = text;
-        document.body.appendChild(tempInput);
-        tempInput.select();
-        document.execCommand('copy');
-        document.body.removeChild(tempInput);
-        alert('Copied to clipboard: ' + text);
+<!-- Expiration modal -->
+<div id="expiration-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Set Expiration Date</h3>
+    <input type="hidden" id="expiration-key">
+    <p id="expiration-file-label" style="font-size:0.85rem;color:#555;word-break:break-all;margin:0 0 10px"></p>
+    <label>Expires on</label>
+    <input type="date" id="expiration-date-input"
+      style="width:100%;padding:8px;border:1px solid #ccc;border-radius:5px;font-size:.95rem;box-sizing:border-box;margin-top:4px"
+      onkeydown="if(event.key==='Escape')closeExpirationModal()">
+    <div class="modal-actions">
+      <button class="modal-btn-primary" onclick="submitExpiration()">Save</button>
+      <button class="modal-btn-secondary" onclick="clearExpiration()">Clear</button>
+      <button class="modal-btn-secondary" onclick="closeExpirationModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create folder modal -->
+<div id="folder-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Create Folder</h3>
+    <label>Folder name</label>
+    <input type="text" id="folder-name-input" placeholder="e.g. photos/2025"
+      onkeydown="if(event.key==='Enter')submitCreateFolder();if(event.key==='Escape')closeFolderModal()">
+    <div class="modal-actions">
+      <button class="modal-btn-primary" onclick="submitCreateFolder()">Create</button>
+      <button class="modal-btn-secondary" onclick="closeFolderModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="media-page">
+
+  <!-- Toolbar -->
+  <div class="admin-toolbar">
+    <h2 style="margin:0">Public CDN Content</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="toolbar-btn toolbar-btn-secondary" onclick="openFolderModal()">&#128193; + Folder</button>
+      <a href="{{ url_for('public_content_gallery') }}" class="toolbar-btn toolbar-btn-secondary">&#128247; Gallery</a>
+    </div>
+  </div>
+
+  <div id="media-alert"></div>
+
+  {%  if filenotfound is defined %}
+    <p style="color:red;font-weight:bold">FILE NOT FOUND</p>
+  {% endif %}
+
+  <!-- Upload -->
+  <details class="collapsible-section">
+    <summary>⬆️ Upload File</summary>
+    <form method="POST" action="/public_content" enctype="multipart/form-data">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <input type="file" name="file" required>
+        <input type="text" name="new_filename" placeholder="Rename (optional)"
+          style="padding:7px;border:1px solid #ccc;border-radius:4px">
+        <label style="display:flex;align-items:center;gap:4px">
+          <input type="checkbox" name="Mobile"> Mobile size
+        </label>
+        <label style="display:flex;align-items:center;gap:4px">
+          <input type="checkbox" name="Discord"> Discord size
+        </label>
+        <label style="display:flex;align-items:center;gap:4px">
+          <input type="checkbox" name="Metadata"> Remove metadata
+        </label>
+        <label style="display:flex;align-items:center;gap:4px">
+          <input type="checkbox" name="ReMuxMovToMP4"> Remux .mov→.mp4
+        </label>
+        <label style="display:flex;align-items:center;gap:4px">
+          Expires: <input type="date" name="expires_at" style="padding:6px;border:1px solid #ccc;border-radius:4px">
+        </label>
+        <button type="submit" style="padding:8px 18px;background:#005f99;color:white;border:none;border-radius:5px;cursor:pointer">Upload</button>
+      </div>
+    </form>
+  </details>
+
+  <!-- Bulk actions -->
+  <details class="collapsible-section">
+    <summary>☑️ Bulk Actions</summary>
+    <form id="bulkForm" method="POST" action="/public_content/bulk_action"
+          style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <label><input type="checkbox" id="selectAll" onchange="toggleAll()"> Select all</label>
+      <select name="action" required id="bulk-action-select">
+        <option value="">— Action —</option>
+        <option value="move">Move to folder</option>
+        <option value="delete">Delete</option>
+      </select>
+      <input type="text" name="target_folder" id="targetFolder" placeholder="Target folder (for move)"
+        style="display:none;padding:7px;border:1px solid #ccc;border-radius:4px">
+      <button type="submit" onclick="return confirmBulkAction()"
+        style="padding:8px 14px;background:#e74c3c;color:white;border:none;border-radius:5px;cursor:pointer">Execute</button>
+    </form>
+  </details>
+
+  <!-- Media card grid -->
+  <div class="media-grid">
+    {% for Key, obj in contents.items() %}
+    {% set is_folder = Key.endswith('/') %}
+    {% set parts = Key.rstrip('/').split('/') %}
+    {% set short_name = parts[-1] if parts else Key %}
+    {% set folder_path = (parts[:-1] | join('/') + '/') if parts | length > 1 else '' %}
+    {% set ext = obj.fileext | lower %}
+    {% set is_image = ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] %}
+    {% set is_video = ext in ['mp4', 'mov', 'webm'] %}
+
+    <div class="media-card">
+      {% if is_folder %}
+        <div class="media-thumb-placeholder">📁</div>
+      {% elif is_image %}
+        <img class="media-thumb" src="https://pub.cmh.sh/{{ Key }}" alt="{{ short_name }}" loading="lazy">
+      {% elif is_video %}
+        <div class="media-thumb-placeholder">🎬</div>
+      {% else %}
+        <div class="media-thumb-placeholder">📄</div>
+      {% endif %}
+
+      <div class="media-info">
+        {% if folder_path %}<div class="media-folder-path">{{ folder_path }}</div>{% endif %}
+        <div class="media-name" title="{{ Key }}">{{ short_name }}</div>
+        {% if not is_folder %}
+          <div class="media-meta">{{ obj.Size | filesizeformat }}</div>
+          {% if Key in expirations %}
+          <div class="media-meta" style="color:#b26a00">⏳ expires {{ expirations[Key] }}</div>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      <div class="media-actions">
+        {% if not is_folder %}
+          <button class="btn-sm btn-copy" data-key="{{ Key }}" onclick="copyUrl(this)" title="Copy CDN URL">🔗</button>
+          <button class="btn-sm btn-rename" data-key="{{ Key }}" onclick="openRenameModal(this)" title="Rename">✏️</button>
+          <button class="btn-sm" data-key="{{ Key }}" data-expires="{{ expirations.get(Key, '') }}" onclick="openExpirationModal(this)"
+            title="Set expiration date" style="background:#f0e6ff;color:#6a0dad;border-color:#d8b4fe">⏳</button>
+          <input type="checkbox" name="selected_files" value="{{ Key }}" form="bulkForm"
+            style="margin-left:auto;cursor:pointer" title="Select for bulk action">
+        {% endif %}
+        <button class="btn-sm btn-delete" data-key="{{ Key }}" onclick="deleteFile(this)"
+          title="{% if is_folder %}Delete folder{% else %}Delete{% endif %}">✕</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+  const CDN_BASE = 'https://pub.cmh.sh/';
+
+  // ── Copy URL ────────────────────────────────────────────────────────────────
+  function copyUrl(btn) {
+    const url = CDN_BASE + btn.dataset.key;
+    navigator.clipboard.writeText(url)
+      .then(() => showAlert('Copied: ' + url, 'success'))
+      .catch(() => { prompt('Copy this URL:', url); });
+  }
+
+  // ── Delete (inline, no page reload) ────────────────────────────────────────
+  function deleteFile(btn) {
+    const key = btn.dataset.key;
+    const label = key.endsWith('/') ? `folder "${key}"` : `"${key}"`;
+    if (!confirm(`Delete ${label}?\nThis cannot be undone.`)) return;
+    fetch('/public_content/api/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showAlert(`Deleted ${key}`, 'success');
+        btn.closest('.media-card').remove();
+      } else {
+        showAlert(d.message || 'Delete failed', 'error');
       }
+    })
+    .catch(() => showAlert('Delete failed', 'error'));
+  }
 
-      function toggleAll() {
-        const selectAll = document.getElementById('selectAll');
-        const checkboxes = document.querySelectorAll('input[name="selected_files"]');
-        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+  // ── Create folder modal ─────────────────────────────────────────────────────
+  function openFolderModal() {
+    document.getElementById('folder-name-input').value = '';
+    document.getElementById('folder-modal').classList.add('open');
+    document.getElementById('folder-name-input').focus();
+  }
+  function closeFolderModal() {
+    document.getElementById('folder-modal').classList.remove('open');
+  }
+  function submitCreateFolder() {
+    const name = document.getElementById('folder-name-input').value.trim();
+    closeFolderModal();
+    if (!name) return;
+    fetch('/public_content/api/create_folder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder_name: name })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { showAlert(`Folder "${d.folder_name}" created.`, 'success'); setTimeout(() => location.reload(), 1200); }
+      else showAlert(d.message || 'Create folder failed', 'error');
+    })
+    .catch(() => showAlert('Create folder failed', 'error'));
+  }
+
+  // ── Rename modal ────────────────────────────────────────────────────────────
+  function openRenameModal(btn) {
+    const key = btn.dataset.key;
+    document.getElementById('rename-old-key').value = key;
+    const input = document.getElementById('rename-new-key');
+    input.value = key;
+    document.getElementById('rename-modal').classList.add('open');
+    input.focus(); input.select();
+  }
+  function closeRenameModal() {
+    document.getElementById('rename-modal').classList.remove('open');
+  }
+  function submitRename() {
+    const oldKey = document.getElementById('rename-old-key').value;
+    const newKey = document.getElementById('rename-new-key').value.trim();
+    closeRenameModal();
+    if (!newKey || newKey === oldKey) return;
+    fetch('/public_content/api/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old_key: oldKey, new_key: newKey })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { showAlert(`Renamed to "${newKey}"`, 'success'); setTimeout(() => location.reload(), 1200); }
+      else showAlert(d.message || 'Rename failed', 'error');
+    })
+    .catch(() => showAlert('Rename failed', 'error'));
+  }
+
+  // ── Bulk helpers ────────────────────────────────────────────────────────────
+  function toggleAll() {
+    const checked = document.getElementById('selectAll').checked;
+    document.querySelectorAll('input[name="selected_files"]').forEach(cb => cb.checked = checked);
+  }
+  function confirmBulkAction() {
+    const selected = document.querySelectorAll('input[name="selected_files"]:checked');
+    if (!selected.length) { alert('Select at least one file.'); return false; }
+    const action = document.getElementById('bulk-action-select').value;
+    if (!action) { alert('Choose an action.'); return false; }
+    return confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${selected.length} file(s)?`);
+  }
+  document.getElementById('bulk-action-select').addEventListener('change', function() {
+    const tf = document.getElementById('targetFolder');
+    tf.style.display = this.value === 'move' ? 'inline-block' : 'none';
+    tf.required = this.value === 'move';
+  });
+
+  // ── Expiration modal ────────────────────────────────────────────────────────
+  function openExpirationModal(btn) {
+    const key = btn.dataset.key;
+    document.getElementById('expiration-key').value = key;
+    document.getElementById('expiration-file-label').textContent = key;
+    document.getElementById('expiration-date-input').value = btn.dataset.expires || '';
+    document.getElementById('expiration-modal').classList.add('open');
+    document.getElementById('expiration-date-input').focus();
+  }
+  function closeExpirationModal() {
+    document.getElementById('expiration-modal').classList.remove('open');
+  }
+  function submitExpiration() {
+    const key = document.getElementById('expiration-key').value;
+    const expires_at = document.getElementById('expiration-date-input').value;
+    if (!expires_at) { alert('Please pick a date.'); return; }
+    closeExpirationModal();
+    fetch('/public_content/api/set_expiration', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ s3_key: key, expires_at })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        updateCardExpiration(key, expires_at);
+        showAlert(`Expiration set to ${expires_at} for "${key}"`, 'success');
+      } else showAlert(d.message || 'Failed to set expiration', 'error');
+    })
+    .catch(() => showAlert('Failed to set expiration', 'error'));
+  }
+  function clearExpiration() {
+    const key = document.getElementById('expiration-key').value;
+    closeExpirationModal();
+    fetch('/public_content/api/remove_expiration', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ s3_key: key })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        updateCardExpiration(key, '');
+        showAlert(`Expiration cleared for "${key}"`, 'success');
+      } else showAlert(d.message || 'Failed to clear expiration', 'error');
+    })
+    .catch(() => showAlert('Failed to clear expiration', 'error'));
+  }
+  function updateCardExpiration(key, expires_at) {
+    const btn = document.querySelector(`.btn-sm[data-key="${CSS.escape(key)}"][data-expires]`);
+    if (!btn) return;
+    btn.dataset.expires = expires_at;
+    const card = btn.closest('.media-card');
+    let expDiv = card.querySelector('.expiration-label');
+    if (expires_at) {
+      if (!expDiv) {
+        expDiv = document.createElement('div');
+        expDiv.className = 'media-meta expiration-label';
+        expDiv.style.color = '#b26a00';
+        card.querySelector('.media-info').appendChild(expDiv);
       }
+      expDiv.textContent = '⏳ expires ' + expires_at;
+    } else if (expDiv) {
+      expDiv.remove();
+    }
+  }
 
-      function confirmBulkAction() {
-        const selected = document.querySelectorAll('input[name="selected_files"]:checked');
-        if (selected.length === 0) {
-          alert('Please select at least one file');
-          return false;
-        }
-        const action = document.querySelector('select[name="action"]').value;
-        return confirm(`Are you sure you want to ${action} ${selected.length} file(s)?`);
-      }
-
-      function deleteFolder(folderName) {
-        if (confirm(`Are you sure you want to delete folder "${folderName}"?`)) {
-          fetch('/public_content/delete_folder', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: 'folder_name=' + encodeURIComponent(folderName)
-          }).then(() => location.reload());
-        }
-      }
-
-      // Show/hide target folder input based on action
-      document.querySelector('select[name="action"]').addEventListener('change', function() {
-        const targetFolder = document.getElementById('targetFolder');
-        if (this.value === 'move') {
-          targetFolder.style.display = 'inline';
-          targetFolder.required = true;
-        } else {
-          targetFolder.style.display = 'none';
-          targetFolder.required = false;
-        }
-      });
-    </script>
+  // ── Alert bar ───────────────────────────────────────────────────────────────
+  function showAlert(msg, type) {
+    const el = document.getElementById('media-alert');
+    el.className = type;
+    el.textContent = msg;
+    setTimeout(() => { el.className = ''; el.textContent = ''; }, 4000);
+  }
+</script>
 {% endblock %}

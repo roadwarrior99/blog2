@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AWS Auto Scaling Groups — cmh.sh</title>
+  <meta name="description" content="AWS Auto Scaling Groups">
+  <meta name="keywords" content="aws,docker,containers,ecs,alb">
+  <link rel="canonical" href="https://blog.cmh.sh/post/225">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8; color: #1a1a2e; line-height: 1.6;
+    }
+    header {
+      background: #005f99; color: white; padding: 12px 20px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    header a { color: white; text-decoration: none; font-size: 0.9rem; opacity: .8; }
+    header a:hover { opacity: 1; }
+    .container { max-width: 820px; margin: 32px auto; padding: 0 16px; }
+    .post-full {
+      background: white; border-radius: 10px; padding: 28px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+    }
+    h1 { font-size: 1.6rem; margin: 0 0 6px; color: #005f99; }
+    .meta { font-size: 0.8rem; color: #777; margin-bottom: 18px; }
+    .body { font-size: 0.97rem; line-height: 1.7; }
+    .body img { max-width: 100%; height: auto; border-radius: 4px; }
+    .body pre { overflow-x: auto; background: #f4f4f4; border-radius: 6px; padding: 14px; }
+    .body p { margin: 0 0 12px; }
+    .body h2, .body h3 { margin: 20px 0 8px; }
+    .tags { margin-top: 20px; }
+    .spa-link {
+      display: inline-block; margin-top: 24px;
+      padding: 8px 18px; background: #005f99; color: white;
+      border-radius: 6px; text-decoration: none; font-size: 0.9rem;
+    }
+    .spa-link:hover { background: #004d80; }
+    footer {
+      text-align: center; padding: 24px 16px; font-size: 0.8rem; color: #999;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>cmh.sh</strong>
+    <a href="https://baas.cmh.sh/index.html">&#8592; All posts</a>
+  </header>
+  <div class="container">
+    <article class="post-full">
+      <h1>AWS Auto Scaling Groups</h1>
+      <div class="meta">2024-12-30</div>
+      <div class="body">Today my focus was on starting work on a dynamically built replacement for my project box. Eleven iterations later and I had an auto scalable box which can host vacuum-flask, connect to efs, and talk to redis to maintain session state. After spending most of the day on that, it occurred to me that I might be able to get away with using an "ECS optimized instance" with my newly found user-data experience and sneak vacuum flask in and still have capacity to spare for some cheap ecs tasks. 
+<pre class=""><code class="">
+#!/bin/bash
+sudo yum update
+sudo yum upgrade -y
+#Install EFS utils
+sudo yum install -y amazon-efs-utils
+#sudo apt-get -y install git binutils rustc cargo pkg-config libssl-dev gettext
+#git clone https://github.com/aws/efs-utils
+#cd efs-utils
+#./build-deb.sh
+#sudo apt-get -y install ./build/amazon-efs-utils*deb
+sudo yum -y install docker
+sudo systemctl enable docker
+sudo systemctl start docker
+#sudo yum -y install boto3
+if [ ! -d /media/vacuum-data ]; then
+  sudo mkdir /media/vacuum-data
+fi
+echo "fs-05863c9e54e7cdfa4:/ /media/vacuum-data efs _netdev,noresvport,tls,iam 0 0" >> /etc/fstab
+#sudo systemctl daemon-reload
+sudo mount -a
+
+#docker start redis
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 631538352062.dkr.ecr.us-east-1.amazonaws.com
+sudo docker pull 631538352062.dkr.ecr.us-east-1.amazonaws.com/cmh.sh:vacuumflask
+sudo sh /media/vacuum-data/run.sh
+
+#ECS related
+if [ -d /etc/ecs ]; then
+  echo "ECS_CLUSTER=vacuumflask_workers" > /etc/ecs/ecs.config
+  echo "ECS_BACKEND_HOST=" >> /etc/ecs/ecs.config
+  #TODO: register with the alb?
+fi
+</code>
+</pre></div>
+      <div class="tags"><a href="https://blog.cmh.sh/tag/aws" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">aws</a> <a href="https://blog.cmh.sh/tag/docker" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">docker</a> <a href="https://blog.cmh.sh/tag/containers" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">containers</a> <a href="https://blog.cmh.sh/tag/ecs" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">ecs</a> <a href="https://blog.cmh.sh/tag/alb" style="display:inline-block;padding:3px 9px;background:#e0f0ff;border-radius:20px;color:#005f99;font-size:0.8rem;text-decoration:none;border:1px solid #b0d8f5;margin:2px">alb</a></div>
+      <a class="spa-link" href="https://baas.cmh.sh/index.html">&#8592; Back to all posts</a>
+    </article>
+  </div>
+  <footer>&copy; cmh.sh</footer>
+</body>
+</html>

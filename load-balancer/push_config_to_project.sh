@@ -11,6 +11,6 @@ zip -r $zipFileName *
 mv $zipFileName ../.
 cd ../
 rm -rf $destination
-scp $zipFileName project:blog2/$zipFileName
-ssh project "cd /media/vacuum-data/vacuum-lb; sudo mv /home/ubuntu/blog2/$zipFileName /media/vacuum-data/vacuum-lb/$zipFileName; sudo bash unpack.sh $zipFileName"
+scp $zipFileName project:$zipFileName
+ssh project "cd /media/vacuum-data/vacuum-lb; sudo mv /home/ubuntu/$zipFileName /media/vacuum-data/vacuum-lb/$zipFileName; sudo bash unpack.sh $zipFileName"
 rm $zipFileName

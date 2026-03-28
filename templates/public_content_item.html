@@ -36,6 +36,15 @@
             <p><strong>Size:</strong> {{ item['Size'] }} bytes</p>
             <p><strong>Storage Class:</strong> {{ item['StorageClass'] }}</p>
 
+            <p><strong>Expiration:</strong>
+                <span id="expiration-display">loading...</span>
+                <button onclick="clearExpiration()" id="clear-exp-btn" style="display:none">Clear</button>
+            </p>
+            <form id="expiration-form" onsubmit="setExpiration(event)">
+                <input type="date" id="expires_at" name="expires_at" required>
+                <button type="submit">Set Expiration</button>
+            </form>
+
             {% if item['Key'].endswith(('.jpg', '.jpeg', '.png', '.gif')) %}
                 <img src="https://pub.cmh.sh/{{  item['Key']|safe }}" alt="Image">
             {% elif item['Key'].endswith('.mp4') %}
@@ -48,4 +57,50 @@
             {% endif %}
         </div>
     </div>
+<script>
+    const s3Key = {{ item['Key'] | tojson }};
+
+    async function loadExpiration() {
+        const resp = await fetch('/public_content/api/expiration/' + encodeURIComponent(s3Key));
+        const data = await resp.json();
+        const display = document.getElementById('expiration-display');
+        const clearBtn = document.getElementById('clear-exp-btn');
+        if (data.expires_at) {
+            display.textContent = data.expires_at;
+            clearBtn.style.display = 'inline';
+            document.getElementById('expires_at').value = data.expires_at;
+        } else {
+            display.textContent = 'none';
+            clearBtn.style.display = 'none';
+        }
+    }
+
+    async function setExpiration(e) {
+        e.preventDefault();
+        const expires_at = document.getElementById('expires_at').value;
+        const resp = await fetch('/public_content/api/set_expiration', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({s3_key: s3Key, expires_at})
+        });
+        const data = await resp.json();
+        if (data.success) loadExpiration();
+        else alert('Error: ' + data.message);
+    }
+
+    async function clearExpiration() {
+        const resp = await fetch('/public_content/api/remove_expiration', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({s3_key: s3Key})
+        });
+        const data = await resp.json();
+        if (data.success) {
+            document.getElementById('expires_at').value = '';
+            loadExpiration();
+        }
+    }
+
+    loadExpiration();
+</script>
 {% endblock %}

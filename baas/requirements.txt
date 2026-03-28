@@ -3,3 +3,4 @@ aws-xray-sdk
 pycryptodome
 pyotp
 boto3
+Pillow

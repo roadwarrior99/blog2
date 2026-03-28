@@ -1,3 +1,2 @@
 dns.conf
 nginx.conf
-run.sh

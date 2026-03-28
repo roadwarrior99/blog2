@@ -19,6 +19,6 @@ cd "$destination"
 zip -r "../$zipFileName" "."
 cd ../
 rm -r "$destination"
-scp "$zipFileName" fck-nat:.
-ssh fck-nat "cd /media/vacuum-data;sudo mv /home/ec2-user/$zipFileName /media/vacuum-data/$zipFileName;sudo unzip -o $zipFileName;sudo rm $zipFileName;"
-
+scp "$zipFileName" project:.
+ssh project "cd /media/vacuum-data;sudo mv /home/ubuntu/$zipFileName /media/vacuum-data/$zipFileName;sudo unzip -o $zipFileName;sudo rm $zipFileName;"
+date

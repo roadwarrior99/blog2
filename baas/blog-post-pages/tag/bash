@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Posts tagged &#8220;bash&#8221; — cmh.sh</title>
+  <meta name="description" content="Posts tagged bash on cmh.sh">
+  <link rel="canonical" href="https://blog.cmh.sh/tag/bash">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8; color: #1a1a2e; line-height: 1.6;
+    }
+    header {
+      background: #005f99; color: white; padding: 12px 20px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    header a { color: white; text-decoration: none; font-size: 0.9rem; opacity: .8; }
+    header a:hover { opacity: 1; }
+    .container { max-width: 820px; margin: 32px auto; padding: 0 16px; }
+    .card {
+      background: white; border-radius: 10px; padding: 28px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+    }
+    h1 { font-size: 1.4rem; margin: 0 0 20px; color: #005f99; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li { border-bottom: 1px solid #eee; padding: 12px 0; }
+    li:last-child { border-bottom: none; }
+    li a { color: #005f99; text-decoration: none; font-weight: 600; font-size: 1rem; }
+    li a:hover { text-decoration: underline; }
+    .date { font-size: 0.8rem; color: #777; }
+    .desc { margin: 4px 0 0; font-size: 0.88rem; color: #555; }
+    .spa-link {
+      display: inline-block; margin-top: 20px;
+      padding: 8px 18px; background: #005f99; color: white;
+      border-radius: 6px; text-decoration: none; font-size: 0.9rem;
+    }
+    .spa-link:hover { background: #004d80; }
+    footer {
+      text-align: center; padding: 24px 16px; font-size: 0.8rem; color: #999;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>cmh.sh</strong>
+    <a href="https://baas.cmh.sh/index.html">&#8592; All posts</a>
+  </header>
+  <div class="container">
+    <div class="card">
+      <h1>Posts tagged &#8220;bash&#8221;</h1>
+      <ul><li><a href="https://blog.cmh.sh/post/198">One Time secret clone and dockerization</a><span class="date"> — 8/5/2024</span><p class=desc>One Time secret clone and dockerization</p></li>
+<li><a href="https://blog.cmh.sh/post/202">bulk comparing files by sha256</a><span class="date"> — 8/14/2024</span><p class=desc>comparing files en mass</p></li>
+<li><a href="https://blog.cmh.sh/post/201">adding numbers with awk</a><span class="date"> — 8/13/2024</span><p class=desc>adding numbers with awk</p></li>
+<li><a href="https://blog.cmh.sh/post/200">Dynamic code generation to save time</a><span class="date"> — 8/11/2024</span><p class=desc>Dynamic code generation to save time</p></li>
+<li><a href="https://blog.cmh.sh/post/197">Syncing data from the old blog to the new blog</a><span class="date"> — 7/28/2024</span><p class=desc>using scp, lq, sqlite3, and python to sync data</p></li>
+<li><a href="https://blog.cmh.sh/post/196">flask templates and orm updates</a><span class="date"> — 7/27/2024</span><p class=desc>flask templates, bash loops, orm models</p></li>
+<li><a href="https://blog.cmh.sh/post/232">Fathers day weekend with OKTA</a><span class="date"> — 2025-06-15</span><p class=desc>Fathers day weekend with OKTA</p></li>
+<li><a href="https://blog.cmh.sh/post/230">Fully automated K3S hosting</a><span class="date"> — 2025-03-17</span><p class=desc>Fully automated highly available k3s hosting in aws.</p></li>
+<li><a href="https://blog.cmh.sh/post/229">Adventures in K3S in 2025</a><span class="date"> — 2025-03-09</span><p class=desc>Adventures in K3S in 2025</p></li>
+<li><a href="https://blog.cmh.sh/post/228">Slick loading of environmental variables into bash</a><span class="date"> — 2025-02-18</span><p class=desc>bash</p></li>
+<li><a href="https://blog.cmh.sh/post/221">AWS ECS Tasks remuxing mov to mp4</a><span class="date"> — 2024-11-28</span><p class=desc>AWS ECS Tasks remuxing mov to mp4</p></li>
+<li><a href="https://blog.cmh.sh/post/220">docker remuxing worker process</a><span class="date"> — 2024-11-27</span><p class=desc>docker remuxing worker process</p></li>
+<li><a href="https://blog.cmh.sh/post/216">looping through a csv 4 ways</a><span class="date"> — 2024-11-09</span><p class=desc>looping through a csv 4 ways</p></li>
+<li><a href="https://blog.cmh.sh/post/213">secrets manager, sftp, plucking missing files out of two lists of files</a><span class="date"> — 2024-10-18</span><p class=desc>secrets manager, sftp, plucking missing files out of two lists of files</p></li>
+<li><a href="https://blog.cmh.sh/post/206">devops now</a><span class="date"> — 2024-09-02</span><p class=desc>using bash and docker to deploy</p></li></ul>
+      <a class="spa-link" href="https://baas.cmh.sh/index.html">&#8592; Back to all posts</a>
+    </div>
+  </div>
+  <footer>&copy; cmh.sh</footer>
+</body>
+</html>
