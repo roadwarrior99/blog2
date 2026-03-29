@@ -3,7 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Another Unused Blog</title>
+    <title>{% block title %}while(motivation &lt;= 0){% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}A personal tech blog about software, infrastructure, and whatever else comes up.{% endblock %}">
+    {% block meta_keywords %}{% endblock %}
+    <!-- Open Graph -->
+    <meta property="og:site_name" content="while(motivation <= 0)">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}while(motivation <= 0){% endblock %}">
+    <meta property="og:description" content="{% block og_description %}A personal tech blog about software, infrastructure, and whatever else comes up.{% endblock %}">
+    <meta property="og:url" content="{% block og_url %}{{ request.url }}{% endblock %}">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{% block twitter_title %}while(motivation <= 0){% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}A personal tech blog about software, infrastructure, and whatever else comes up.{% endblock %}">
+    <!-- RSS autodiscovery -->
+    <link rel="alternate" type="application/rss+xml" title="while(motivation <= 0)" href="/rss.xml">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="mcp" href="/.well-known/mcp.json">
 </head>

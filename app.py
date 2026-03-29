@@ -300,6 +300,81 @@ def blogposts():
     return render_template("postlist.html", posts=posts)
 
 
+@app.route('/rss.xml', methods=['GET'])
+def rss_feed():
+    conn = sqlite3.connect(db_path)
+    sql = "SELECT id, subject, date, rss_description, body FROM post ORDER BY id DESC LIMIT 20"
+    cur = conn.cursor()
+    cur.execute(sql)
+    results = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    base_url = os.environ.get("APP_BASE_URL", request.host_url.rstrip("/"))
+    items = []
+    for row in results:
+        post_id, subject, date, rss_description, body = row
+        pub_date = ""
+        if date:
+            try:
+                dt = datetime.datetime.strptime(date, "%Y-%m-%d")
+                pub_date = dt.strftime("%a, %d %b %Y 00:00:00+0000")
+            except Exception:
+                pub_date = date
+        items.append(
+            f"<item>"
+            f"<title>{subject}</title>"
+            f"<link>{base_url}/post/{post_id}</link>"
+            f"<guid>{base_url}/post/{post_id}</guid>"
+            f"<pubDate>{pub_date}</pubDate>"
+            f"<description><![CDATA[{rss_description or ''}]]></description>"
+            f"</item>"
+        )
+
+    rss_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<rss version="2.0">'
+        '<channel>'
+        f'<title>Blog</title>'
+        f'<link>{base_url}/post</link>'
+        f'<description>Blog posts</description>'
+        + "".join(items) +
+        '</channel>'
+        '</rss>'
+    )
+    return app.response_class(rss_xml, mimetype='application/rss+xml')
+
+
+@app.route('/sitemap.xml', methods=['GET'])
+def sitemap():
+    conn = sqlite3.connect(db_path)
+    sql = "SELECT id, date FROM post ORDER BY id DESC"
+    cur = conn.cursor()
+    cur.execute(sql)
+    results = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    base_url = os.environ.get("APP_BASE_URL", request.host_url.rstrip("/"))
+    urls = [
+        f'<url><loc>{base_url}/</loc></url>',
+        f'<url><loc>{base_url}/post</loc></url>',
+        f'<url><loc>{base_url}/rss.xml</loc></url>',
+    ]
+    for row in results:
+        post_id, date = row
+        lastmod = f"<lastmod>{date}</lastmod>" if date else ""
+        urls.append(f'<url><loc>{base_url}/post/{post_id}</loc>{lastmod}</url>')
+
+    sitemap_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        + "".join(urls) +
+        '</urlset>'
+    )
+    return app.response_class(sitemap_xml, mimetype='application/xml')
+
+
 @app.route('/post', methods=['POST'])
 @flask_login.login_required
 def create_blogpost(number=0):
