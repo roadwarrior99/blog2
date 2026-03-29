@@ -38,11 +38,9 @@
                     {% if (filetypes[Key]) %}
                         <img src="https://pub.cmh.sh/{{ Key }}" alt="{{ Key }}"/>
                     {% else %}
-                        <span class="videoblock">Edit
-                        <video controls>
-                            <source src="https://pub.cmh.sh/{{ Key }}"  />
-                        </video><br/>
-                        </span>
+                        {% set preview_key = Key.rsplit('.', 1)[0] + '_preview.gif' %}
+                        <img src="https://pub.cmh.sh/{{ preview_key }}" alt="{{ Key }}"
+                             onerror="this.outerHTML='<span class=videoblock>&#127916; {{ Key }}</span>'"/>
                     {% endif %}
                 </a>
 
