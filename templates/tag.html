@@ -1,4 +1,12 @@
 {% extends 'base.html' %}
+{% set tag_name = request.path.split('/')[-1] %}
+{% block title %}Posts tagged "{{ tag_name }}" — while(motivation &lt;= 0){% endblock %}
+{% block meta_description %}Blog posts tagged "{{ tag_name }}".{% endblock %}
+{% block og_title %}Posts tagged "{{ tag_name }}" — while(motivation <= 0){% endblock %}
+{% block og_description %}Blog posts tagged "{{ tag_name }}".{% endblock %}
+{% block twitter_title %}Posts tagged "{{ tag_name }}" — while(motivation <= 0){% endblock %}
+{% block twitter_description %}Blog posts tagged "{{ tag_name }}".{% endblock %}
+
 {% block wordcloud %}
 <button class="accordion">Click to Show/Hide Tag Word Cloud</button>
 <div class="panel">

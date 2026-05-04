@@ -6,12 +6,10 @@ echo "running image $img"
 docker run \
 --volume /media/vacuum-data/vacuum-lb/logs:/var/log/nginx \
 --volume /media/vacuum-data/vacuum-lb/ssl:/tmp/ssl \
---volume /media/vacuum-data/vacuum-lb/letsencrypt:/etc/letsencrypt \
---volume /media/vacuum-data/vacuum-lb/certbot-www:/var/www/certbot \
 --volume /media/vacuum-data/vacuum-lb/nginx.conf:/etc/nginx/nginx.conf \
 --volume /media/vacuum-data/vacuum-lb/dns.conf:/etc/resolv.conf \
 -e AWS_REGION=US-EAST-1 \
--p 443:443 -p 80:80 -td "$img"
+-p 443:443 -p 8099:80 -td "$img"
 #echo "waiting for container to start"
 #sleep 5
 #contid=$(docker ps -a | grep "$img" | awk '{print $1}')

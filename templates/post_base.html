@@ -3,10 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ blog['subject'] }} — while(motivation &lt;= 0)</title>
     <meta name="description" content="{{ blog['rss'] }}">
     <meta name="keywords" content="{{ blog['seo'] }}">
-    <title>{{ blog['subject'] }}</title>
+    <link rel="canonical" href="{{ url_for('blogpost', number=blog['id'], _external=True) }}">
+    <!-- Open Graph -->
+    <meta property="og:site_name" content="while(motivation <= 0)">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="{{ blog['subject'] }}">
+    <meta property="og:description" content="{{ blog['rss'] }}">
+    <meta property="og:url" content="{{ url_for('blogpost', number=blog['id'], _external=True) }}">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{{ blog['subject'] }}">
+    <meta name="twitter:description" content="{{ blog['rss'] }}">
+    <!-- RSS autodiscovery -->
+    <link rel="alternate" type="application/rss+xml" title="while(motivation <= 0)" href="/rss.xml">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="mcp" href="/.well-known/mcp.json">
 </head>
 <body>
     <header>

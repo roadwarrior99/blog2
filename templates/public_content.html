@@ -209,7 +209,10 @@
       {% elif is_image %}
         <img class="media-thumb" src="https://pub.cmh.sh/{{ Key }}" alt="{{ short_name }}" loading="lazy">
       {% elif is_video %}
-        <div class="media-thumb-placeholder">🎬</div>
+        {% set preview_key = Key.rsplit('.', 1)[0] + '_preview.gif' %}
+        <img class="media-thumb" src="https://pub.cmh.sh/{{ preview_key }}" alt="{{ short_name }}" loading="lazy"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="media-thumb-placeholder" style="display:none">🎬</div>
       {% else %}
         <div class="media-thumb-placeholder">📄</div>
       {% endif %}

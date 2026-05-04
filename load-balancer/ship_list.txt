@@ -1,5 +1,2 @@
 dns.conf
 nginx.conf
-nginx-temp.conf
-entrypoint.sh
-certbot-renew.sh
