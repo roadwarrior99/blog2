@@ -36,23 +36,28 @@ get_cert() {
         || echo "WARNING: certbot failed for $primary — will retry on next restart"
 }
 
-# Ensure certs exist for all domains so nginx can start
-provision_cert blog.cmh.sh
-provision_cert cmh.sh
-provision_cert colinhayes.dev
+mkdir -p /var/www/certbot
+
+# Every hostname nginx.conf loads a cert for, one per server block. Each is
+# requested independently so one unreachable domain (stale DNS, etc.) can't
+# take down certs for the others sharing a cert group.
+DOMAINS="blog.cmh.sh blog4.cmh.sh cmh.sh ots.cmh.sh colinhayes.dev blog.colinhayes.dev about.colinhayes.dev links.colinhayes.dev"
+
+# Ensure a cert file exists for every domain so nginx can start even on a
+# fresh volume where no real certs have been issued yet.
+for domain in $DOMAINS; do
+    provision_cert "$domain"
+done
 
 # Start nginx in background so certbot can complete the HTTP-01 challenge
 nginx -g "daemon on;"
 
-# If cert is self-signed (expires within 1 day), replace with letsencrypt certs
-if openssl x509 -checkend 86400 -noout -in /etc/letsencrypt/live/blog.cmh.sh/fullchain.pem 2>/dev/null; then
-    : # cert is valid for more than 1 day, skip provisioning
-else
-    echo "Temporary certs detected — obtaining letsencrypt certs..."
-    get_cert "-d blog.cmh.sh -d blog4.cmh.sh" "blog.cmh.sh"
-    get_cert "-d cmh.sh -d ots.cmh.sh" "cmh.sh"
-    get_cert "-d colinhayes.dev -d blog.colinhayes.dev -d about.colinhayes.dev -d links.colinhayes.dev" "colinhayes.dev"
-fi
+# get_cert no-ops per-domain when a valid cert already exists, so it's safe
+# (and necessary for self-healing after a DNS fix) to attempt every domain
+# on every restart rather than gating the whole batch on one domain's cert.
+for domain in $DOMAINS; do
+    get_cert "-d $domain" "$domain"
+done
 
 echo "Stopping temporary nginx..."
 nginx -s stop

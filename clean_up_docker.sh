@@ -1,11 +1,15 @@
 #!/bin/bash
 set -eu
 
-# Remove stopped containers older than a week
-echo "=== Removing old stopped containers ==="
-docker ps -a --filter "status=exited" --filter "until=168h" --format "{{.ID}}" | while read -r id; do
-    echo "Removing container $id"
-    docker container rm "$id"
+# Keep only the last 2 container instances per image (running containers are always kept)
+echo "=== Pruning old container instances (keep last 2 per image) ==="
+docker ps -a --format "{{.Image}}" | sort -u | while read -r image; do
+    # Get exited containers for this image, newest first, skip first 2
+    docker ps -a --filter "ancestor=$image" --filter "status=exited" \
+        --format "{{.ID}}" | tail -n +3 | while read -r id; do
+        echo "Removing old container $id (image: $image)"
+        docker container rm "$id"
+    done
 done
 
 # Remove dangling images (<none>:<none>)

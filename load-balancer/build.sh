@@ -1,7 +1,7 @@
 #!/bin/bash
 tagname="vacuum-lb"
 version=$(date +"%Y%m%d%H%M%S")
-docker build --tag "${tagname}:${version}" .
+docker build --platform linux/amd64 --tag "${tagname}:${version}" .
 success=$(docker images | grep -w $version)
 if [ -z "$success" ]; then
     echo "build failed"
