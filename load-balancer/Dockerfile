@@ -1,7 +1,7 @@
 FROM public.ecr.aws/nginx/nginx
 COPY nginx.conf /etc/nginx/nginx.conf
-RUN mkdir /tmp/ssl
-RUN apt-get update -qq && apt-get install -y certbot python3-certbot-nginx cron openssl && rm -rf /var/lib/apt/lists/*
+RUN mkdir /tmp/ssl && mkdir -p /var/www/certbot
+RUN apt-get update -qq && apt-get install -y certbot python3-certbot-nginx cron openssl awscli && rm -rf /var/lib/apt/lists/*
 
 # Renewal script
 COPY certbot-renew.sh /etc/cron.daily/certbot-renew
