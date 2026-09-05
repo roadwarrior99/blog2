@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>New Range Retrospective</h2>
+<p style="color:var(--muted);max-width:640px;">
+    Upload a zip of photos straight from your phone. They'll be converted to a
+    web-friendly format, stripped of location data, ordered into a timeline, and
+    scanned for firearms so you can write up each rental.
+</p>
+
+{% if error %}
+<p style="background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b;padding:10px 14px;border-radius:6px;">{{ error }}</p>
+{% endif %}
+
+<form action="{{ url_for('range_new_submit') }}" method="POST" enctype="multipart/form-data">
+    <label for="zipfile">Photo zip (.zip of HEIC / JPG / PNG):</label><br>
+    <input type="file" id="zipfile" name="zipfile" accept=".zip,application/zip" required><br>
+
+    <label for="month">Month:</label><br>
+    <select id="month" name="month" required>
+        {% for m in range(1, 13) %}
+        <option value="{{ m }}" {% if m == default_month %}selected{% endif %}>
+            {{ ["","January","February","March","April","May","June","July","August","September","October","November","December"][m] }}
+        </option>
+        {% endfor %}
+    </select><br>
+
+    <label for="year">Year:</label><br>
+    <input type="number" id="year" name="year" value="{{ default_year }}" min="2000" max="2100" required><br>
+
+    <input type="submit" value="Upload &amp; process">
+</form>
+{% endblock %}

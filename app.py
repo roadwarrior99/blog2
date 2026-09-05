@@ -30,6 +30,8 @@ import boto3
 from s3_management import s3_remove_file
 from dotenv import load_dotenv
 import image_processing
+import range_retro
+import tempfile
 from watchtower import CloudWatchLogHandler
 import platform
 import datetime
@@ -133,6 +135,7 @@ def ensure_expiration_table():
 #server_session = session(app)
 
 ensure_expiration_table()
+range_retro.ensure_tables(db_path)
 
 
 def require_auth(f):
@@ -396,6 +399,115 @@ def create_blogpost(number=0):
     post.save()
     #Make this smarter depending on how we are posting.
     return render_template("save.html")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Range retrospective ("Paper Punches")
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route('/range/new', methods=['GET'])
+@flask_login.login_required
+def range_new():
+    today = datetime.date.today()
+    return render_template('range_new.html', default_year=today.year, default_month=today.month)
+
+
+@app.route('/range/new', methods=['POST'])
+@flask_login.login_required
+def range_new_submit():
+    file = request.files.get('zipfile')
+    if not file or not file.filename.lower().endswith('.zip'):
+        return render_template('range_new.html', error='Please choose a .zip file.',
+                               default_year=datetime.date.today().year,
+                               default_month=datetime.date.today().month)
+    try:
+        year = int(request.form.get('year'))
+        month = int(request.form.get('month'))
+        assert 1 <= month <= 12
+    except (TypeError, ValueError, AssertionError):
+        return render_template('range_new.html', error='Pick a valid month and year.',
+                               default_year=datetime.date.today().year,
+                               default_month=datetime.date.today().month)
+
+    fd, zip_path = tempfile.mkstemp(suffix='.zip', prefix='rangeretro_')
+    os.close(fd)
+    file.save(zip_path)
+
+    job_id = secrets.token_urlsafe(8)
+    range_retro.create_job(db_path, job_id, year, month)
+    range_retro.start_job(db_path, job_id, zip_path)
+    logger.info(f"Range retrospective job {job_id} started for {year}-{month:02d}")
+    return redirect(f'/range/job/{job_id}')
+
+
+@app.route('/range/job/<job_id>', methods=['GET'])
+@flask_login.login_required
+def range_job(job_id):
+    job = range_retro.get_job(db_path, job_id)
+    if not job:
+        return render_template('file_error.html'), 404
+    if job['status'] == 'done':
+        return redirect(f'/range/job/{job_id}/commentary')
+    return render_template('range_job.html', job=job)
+
+
+@app.route('/range/job/<job_id>/status', methods=['GET'])
+@flask_login.login_required
+def range_job_status(job_id):
+    job = range_retro.get_job(db_path, job_id)
+    if not job:
+        return json.dumps({'success': False}), 404
+    return json.dumps({
+        'success': True,
+        'status': job['status'],
+        'message': job['message'],
+        'total': job['total'],
+        'processed': job['processed'],
+    }), 200, {'ContentType': 'application/json'}
+
+
+@app.route('/range/job/<job_id>/commentary', methods=['GET'])
+@flask_login.login_required
+def range_job_commentary(job_id):
+    job = range_retro.get_job(db_path, job_id)
+    if not job:
+        return render_template('file_error.html'), 404
+    if job['status'] != 'done':
+        return redirect(f'/range/job/{job_id}')
+    subject = range_retro.default_subject(job['year'], job['month'])
+    date = range_retro.default_date(job['manifest'], job['year'], job['month'])
+    return render_template('range_commentary.html', job=job, default_subject=subject, default_date=date)
+
+
+@app.route('/range/job/<job_id>/publish', methods=['POST'])
+@flask_login.login_required
+def range_job_publish(job_id):
+    job = range_retro.get_job(db_path, job_id)
+    if not job or job['status'] != 'done':
+        return render_template('file_error.html'), 404
+
+    manifest = job['manifest']
+    for m in manifest:
+        m['commentary'] = request.form.get(f"commentary_{m['filename']}", '').strip()
+        # Allow the admin to correct the firearm flag from the form.
+        m['has_firearm'] = request.form.get(f"firearm_{m['filename']}") == 'on'
+    range_retro.save_manifest(db_path, job_id, manifest)
+
+    intro = request.form.get('intro', '')
+    subject = request.form.get('subject') or range_retro.default_subject(job['year'], job['month'])
+    date = request.form.get('date') or range_retro.default_date(manifest, job['year'], job['month'])
+    seo = request.form.get('seo_keywords') or 'range, paper punches, shooting'
+    rss = request.form.get('rss_description') or subject
+
+    body = range_retro.build_post_body(manifest, intro)
+
+    post = objects.blog_post()
+    post.dbfile = db_path
+    post.load_from_values(id=0, oldid="", date=date, subject=subject, rss=rss, seo=seo, body=body)
+    post.save()
+
+    range_retro.mark_published(db_path, job_id, post.id)
+    logger.info(f"Range retrospective job {job_id} published as post {post.id}")
+    return redirect(f'/post/{post.id}')
+
 
 def allowed_file(filename):
     return '.' in filename and \

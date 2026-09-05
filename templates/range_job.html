@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Processing photos…</h2>
+
+<div style="max-width:640px;">
+    <p id="range-message" style="color:var(--muted);">{{ job['message'] or 'Starting…' }}</p>
+
+    <div style="height:14px;background:#e2e8f0;border-radius:7px;overflow:hidden;margin:12px 0;">
+        <div id="range-bar" style="height:100%;width:0%;background:var(--brand);transition:width .3s;"></div>
+    </div>
+    <p id="range-count" style="font-size:.85rem;color:var(--muted);"></p>
+
+    <p id="range-error" style="display:none;background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b;padding:10px 14px;border-radius:6px;"></p>
+</div>
+
+<script>
+(function () {
+    var jobId = {{ job['id'] | tojson }};
+    var statusUrl = '/range/job/' + jobId + '/status';
+
+    function poll() {
+        fetch(statusUrl).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d.success) { return; }
+            document.getElementById('range-message').textContent = d.message || '';
+            var pct = d.total ? Math.round(100 * d.processed / d.total) : 0;
+            document.getElementById('range-bar').style.width = pct + '%';
+            document.getElementById('range-count').textContent =
+                d.total ? (d.processed + ' / ' + d.total + ' photos') : '';
+
+            if (d.status === 'done') {
+                window.location = '/range/job/' + jobId + '/commentary';
+                return;
+            }
+            if (d.status === 'error') {
+                var e = document.getElementById('range-error');
+                e.textContent = d.message || 'Processing failed.';
+                e.style.display = 'block';
+                return;
+            }
+            setTimeout(poll, 2000);
+        }).catch(function () { setTimeout(poll, 3000); });
+    }
+    poll();
+})();
+</script>
+{% endblock %}

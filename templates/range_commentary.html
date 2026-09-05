@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .rr-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:16px; margin:18px 0; }
+    .rr-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; }
+    .rr-card.firearm { border-color:#b26a00; box-shadow:0 0 0 2px rgba(178,106,0,.15); }
+    .rr-card img { width:100%; height:170px; object-fit:cover; display:block; background:#f0f4f8; }
+    .rr-card-body { padding:10px; display:flex; flex-direction:column; gap:6px; }
+    .rr-meta { font-size:.72rem; color:var(--muted); }
+    .rr-flag { font-size:.8rem; display:flex; align-items:center; gap:6px; }
+    .rr-card textarea { width:100%; min-height:80px; font-size:.85rem; padding:6px; border:1px solid var(--border); border-radius:4px; resize:vertical; }
+    .rr-fields label { display:block; font-weight:600; margin:12px 0 4px; }
+    .rr-fields input[type=text], .rr-fields input[type=date], .rr-fields textarea { width:100%; max-width:640px; padding:8px 10px; border:1px solid var(--border); border-radius:6px; }
+    .rr-fields textarea { min-height:120px; }
+</style>
+
+<h2>{{ default_subject }}</h2>
+<p style="color:var(--muted);">{{ job['message'] }}. Add commentary for each rental (the firearm photos are flagged), then publish.</p>
+
+<form action="{{ url_for('range_job_publish', job_id=job['id']) }}" method="POST">
+    <div class="rr-fields">
+        <label for="subject">Title</label>
+        <input type="text" id="subject" name="subject" value="{{ default_subject }}" required>
+
+        <label for="date">Date</label>
+        <input type="date" id="date" name="date" value="{{ default_date }}" required>
+
+        <label for="rss_description">RSS description</label>
+        <input type="text" id="rss_description" name="rss_description" value="{{ default_subject }}">
+
+        <label for="seo_keywords">SEO keywords</label>
+        <input type="text" id="seo_keywords" name="seo_keywords" value="range, paper punches, shooting">
+
+        <label for="intro">Intro (HTML allowed &mdash; appears above the photo timeline)</label>
+        <textarea id="intro" name="intro" placeholder="<p>How the month went at the range…</p>"></textarea>
+    </div>
+
+    <h3 style="margin-top:24px;">Photos &amp; rentals</h3>
+    <div class="rr-grid">
+        {% for m in job['manifest'] %}
+        <div class="rr-card {% if m['has_firearm'] %}firearm{% endif %}">
+            <img src="{{ m['thumb_url'] }}" alt="{{ m['filename'] }}" loading="lazy">
+            <div class="rr-card-body">
+                <div class="rr-meta">
+                    {{ m['filename'] }}
+                    {% if m['taken_at'] %}· {{ m['taken_at'].replace('T', ' ') }}{% else %}· no timestamp{% endif %}
+                    {% if m['had_gps'] %}· 📍 GPS stripped{% endif %}
+                </div>
+                <label class="rr-flag">
+                    <input type="checkbox" name="firearm_{{ m['filename'] }}" {% if m['has_firearm'] %}checked{% endif %}>
+                    Firearm in this photo
+                    {% if m['labels'] %}<span class="rr-meta">({{ m['labels'] | join(', ') }})</span>{% endif %}
+                </label>
+                <textarea name="commentary_{{ m['filename'] }}"
+                          placeholder="What was this rental? How did it shoot?">{{ m['commentary'] }}</textarea>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <input type="submit" value="Publish retrospective">
+</form>
+{% endblock %}

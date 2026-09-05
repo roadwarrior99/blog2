@@ -15,3 +15,5 @@ watchtower
 pyotp
 okta
 requests
+Pillow
+pillow-heif
