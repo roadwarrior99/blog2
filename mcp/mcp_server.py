@@ -9,7 +9,7 @@ DB = os.environ.get(
     os.path.join(os.path.dirname(__file__), "..", "data", "vacuumflask.db")
 )
 
-mcp = FastMCP("while(motivation <= 0) blog")
+mcp = FastMCP("Measure Twice, Deploy Once")
 
 
 @mcp.resource("blog://posts")

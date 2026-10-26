@@ -3,28 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}while(motivation &lt;= 0){% endblock %}</title>
+    <title>{% block title %}Measure Twice, Deploy Once{% endblock %}</title>
     <meta name="description" content="{% block meta_description %}A personal tech blog about software, infrastructure, and whatever else comes up.{% endblock %}">
     {% block meta_keywords %}{% endblock %}
     <!-- Open Graph -->
-    <meta property="og:site_name" content="while(motivation <= 0)">
+    <meta property="og:site_name" content="Measure Twice, Deploy Once">
     <meta property="og:type" content="{% block og_type %}website{% endblock %}">
-    <meta property="og:title" content="{% block og_title %}while(motivation <= 0){% endblock %}">
+    <meta property="og:title" content="{% block og_title %}Measure Twice, Deploy Once{% endblock %}">
     <meta property="og:description" content="{% block og_description %}A personal tech blog about software, infrastructure, and whatever else comes up.{% endblock %}">
     <meta property="og:url" content="{% block og_url %}{{ request.url }}{% endblock %}">
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="{% block twitter_title %}while(motivation <= 0){% endblock %}">
+    <meta name="twitter:title" content="{% block twitter_title %}Measure Twice, Deploy Once{% endblock %}">
     <meta name="twitter:description" content="{% block twitter_description %}A personal tech blog about software, infrastructure, and whatever else comes up.{% endblock %}">
     <!-- RSS autodiscovery -->
-    <link rel="alternate" type="application/rss+xml" title="while(motivation <= 0)" href="/rss.xml">
+    <link rel="alternate" type="application/rss+xml" title="Measure Twice, Deploy Once" href="/rss.xml">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="mcp" href="/.well-known/mcp.json">
 </head>
 <body>
     <header>
         <div class="header-inner">
-            <h1><a href="/">while(motivation &lt;= 0)</a></h1>
+            <h1><a href="/">#!/bin/cmh</a></h1>
             <nav>
                 <ul class="adminmenu">
                     {% if current_user.is_authenticated %}
@@ -41,7 +41,7 @@
         {% block content %}{% endblock %}
     </main>
     <footer>
-        <p>© 2024 Another unused blog</p>
+        <p>© 2026 Measure Twice, Deploy Once</p>
     </footer>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/components/prism-bash.min.js"></script>

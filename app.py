@@ -344,7 +344,7 @@ def rss_feed():
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<rss version="2.0">'
         '<channel>'
-        f'<title>Blog</title>'
+        f'<title>Measure Twice, Deploy Once</title>'
         f'<link>{base_url}/post</link>'
         f'<description>Blog posts</description>'
         + "".join(items) +
@@ -925,7 +925,7 @@ def mcp_discovery():
     payload = {
         "mcpServers": [
             {
-                "name": "while(motivation <= 0) blog",
+                "name": "Measure Twice, Deploy Once",
                 "url": f"{base_url}/mcp/sse",
                 "transport": "sse"
             }
