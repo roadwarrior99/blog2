@@ -2,7 +2,6 @@ import boto3
 import os
 import logging
 from werkzeug.utils import secure_filename
-from Crypto.SelfTest.Cipher.test_OFB import file_name
 logger = logging.getLogger(__name__)
 
 bucket_name = os.environ.get("CDN_BUCKET_NAME")
