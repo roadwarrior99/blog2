@@ -31,6 +31,8 @@ from s3_management import s3_remove_file
 from dotenv import load_dotenv
 import image_processing
 import range_retro
+import fregata_archive
+from botocore.exceptions import ClientError
 import tempfile
 from watchtower import CloudWatchLogHandler
 import platform
@@ -507,6 +509,38 @@ def range_job_publish(job_id):
     range_retro.mark_published(db_path, job_id, post.id)
     logger.info(f"Range retrospective job {job_id} published as post {post.id}")
     return redirect(f'/post/{post.id}')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fregata NVR archive (private S3 bucket, proxied — never exposed directly)
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route('/fregata', methods=['GET'])
+@flask_login.login_required
+def fregata_archive_page():
+    try:
+        usage = fregata_archive.usage_summary()
+        cameras = fregata_archive.per_camera_bytes()
+        captures = fregata_archive.recent_captures()
+    except ClientError as e:
+        logger.error(f"Fregata archive unavailable: {e}")
+        return render_template('fregata_archive.html', error=str(e),
+                               bucket=fregata_archive.BUCKET)
+    return render_template('fregata_archive.html', usage=usage, cameras=cameras,
+                           captures=captures, recent_hours=fregata_archive.RECENT_HOURS)
+
+
+@app.route('/fregata/media/<path:key>', methods=['GET'])
+@flask_login.login_required
+def fregata_media(key):
+    if not fregata_archive.is_media_key(key):
+        return "Not found", 404
+    try:
+        status, headers, body = fregata_archive.open_media(key, request.headers.get('Range'))
+    except fregata_archive.MediaNotFound:
+        return "Not found", 404
+    except fregata_archive.RangeNotSatisfiable as e:
+        return "", 416, {'Content-Range': f'bytes */{e.size}'}
+    return flask.Response(body, status=status, headers=headers, direct_passthrough=True)
 
 
 def allowed_file(filename):

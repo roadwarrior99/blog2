@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+
+{% block title %}Fregata Archive{% endblock %}
+
+{% macro fmt_bytes(n) -%}
+    {%- if n >= 1024 ** 4 -%}{{ '%.2f' % (n / 1024 ** 4) }} TB
+    {%- elif n >= 1024 ** 3 -%}{{ '%.2f' % (n / 1024 ** 3) }} GB
+    {%- elif n >= 1024 ** 2 -%}{{ '%.1f' % (n / 1024 ** 2) }} MB
+    {%- else -%}{{ '%.0f' % (n / 1024) }} KB{%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+<style>
+    .fa-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin:12px 0 8px; }
+    .fa-stat { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; }
+    .fa-stat .v { font-size:1.35rem; font-weight:600; }
+    .fa-stat .l { font-size:.8rem; color:var(--muted); }
+    .fa-note { font-size:.8rem; color:var(--muted); }
+    .fa-player { position:sticky; top:0; z-index:5; background:var(--bg); padding:8px 0; display:none; }
+    .fa-player video { width:100%; max-height:45vh; background:#000; border-radius:var(--radius); }
+    .fa-player-frame { position:relative; }
+    .fa-close { position:absolute; top:8px; right:8px; z-index:2; width:36px; height:36px; border-radius:50%;
+                border:none; background:rgba(0,0,0,.6); color:#fff; font-size:20px; line-height:36px;
+                padding:0; cursor:pointer; }
+    .fa-close:hover { background:rgba(0,0,0,.85); }
+    .fa-filter { margin:12px 0; display:flex; gap:6px; flex-wrap:wrap; }
+    .fa-filter button { border:1px solid var(--border); background:var(--surface); border-radius:14px; padding:3px 12px; cursor:pointer; }
+    .fa-filter button.on { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .fa-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+    .fa-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; cursor:pointer; }
+    .fa-card.playing { outline:3px solid var(--brand); }
+    .fa-card img, .fa-card .noimg { width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#cbd5e1; }
+    .fa-card .meta { padding:6px 10px 8px; font-size:.82rem; }
+    .fa-card .when { font-weight:600; }
+    .fa-tag { display:inline-block; font-size:.72rem; background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:0 5px; margin:2px 2px 0 0; }
+    .fa-tag.alert { background:#fde8e8; border-color:#f5b7b1; color:#c0392b; }
+    .fa-day { margin:20px 0 8px; font-size:1rem; }
+</style>
+
+<h2>Fregata Archive</h2>
+
+{% if error %}
+<p style="background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b;padding:10px 14px;border-radius:6px;">
+    Couldn't read <code>{{ bucket }}</code>: {{ error }}<br>
+    The blog's IAM role needs <code>s3:ListBucket</code> / <code>s3:GetObject</code> on the archive bucket.
+</p>
+{% else %}
+
+<h3>Storage</h3>
+<div class="fa-stats">
+    <div class="fa-stat"><div class="v">{{ fmt_bytes(usage.total_bytes) }}</div><div class="l">stored · {{ '{:,}'.format(usage.total_objects) }} objects</div></div>
+    <div class="fa-stat"><div class="v">${{ '%.2f' % usage.monthly_storage_cost }}/mo</div><div class="l">storage cost at current size</div></div>
+    <div class="fa-stat"><div class="v">{{ fmt_bytes(usage.bytes_per_day) }}/day</div><div class="l">ingest rate · ~{{ '%.0f' % usage.objects_per_day }} objects/day</div></div>
+    <div class="fa-stat"><div class="v">{{ fmt_bytes(usage.projected_bytes) }}</div><div class="l">steady state at {{ usage.retention_days }}-day retention</div></div>
+    <div class="fa-stat"><div class="v">${{ '%.2f' % usage.projected_monthly_cost }}/mo</div><div class="l">estimated steady-state cost</div></div>
+</div>
+<p class="fa-note">
+    Rate averaged over the last {{ '%.1f' % usage.rate_window_days }} day(s) of uploads.
+    S3 Standard us-east-1 list prices ($0.023/GB-month, $0.005 per 1,000 PUTs); excludes data transfer
+    and the GETs this page makes. By camera:
+    {% for cam, size in cameras.items() %}{{ cam }} {{ fmt_bytes(size) }}{% if not loop.last %} · {% endif %}{% endfor %}.
+    Listing as of <span class="fa-ts" data-ts="{{ usage.listed_at.timestamp() }}"></span>.
+</p>
+
+<h3>Last {{ recent_hours }} hours <span class="fa-note">({{ captures | length }} captures)</span></h3>
+
+<div class="fa-player" id="fa-player">
+    <div class="fa-player-frame">
+        <video id="fa-video" controls playsinline preload="none"></video>
+        <button type="button" class="fa-close" id="fa-close" title="Close (Esc)" aria-label="Close video">✕</button>
+    </div>
+    <div class="fa-note" id="fa-caption"></div>
+</div>
+
+{% set cams = captures | map(attribute='camera') | unique | list %}
+{% if cams | length > 1 %}
+<div class="fa-filter" id="fa-filter">
+    <button class="on" data-cam="">All</button>
+    {% for cam in cams | sort %}<button data-cam="{{ cam }}">{{ cam }}</button>{% endfor %}
+</div>
+{% endif %}
+
+<div id="fa-list">
+{% for c in captures %}
+    <div class="fa-card" data-cam="{{ c.camera }}" data-ts="{{ c.start }}"
+         {% if c.clip %}data-clip="{{ url_for('fregata_media', key=c.clip) }}"{% endif %}
+         {% if c.snapshots %}data-poster="{{ url_for('fregata_media', key=c.snapshots[0]) }}"{% endif %}>
+        {% if c.snapshots %}
+            <img loading="lazy" alt="{{ c.camera }} snapshot" src="{{ url_for('fregata_media', key=c.snapshots[0]) }}">
+        {% else %}
+            <div class="noimg"></div>
+        {% endif %}
+        <div class="meta">
+            <div class="when fa-ts" data-ts="{{ c.start }}" data-fmt="time"></div>
+            <div>{{ c.camera }}{% if c.duration %} · {{ '%.0f' % c.duration }}s{% endif %}{% if c.clip_size %} · {{ fmt_bytes(c.clip_size) }}{% endif %}{% if not c.clip %} · no clip{% endif %}</div>
+            {% if c.severity %}<span class="fa-tag {{ c.severity }}">{{ c.severity }}</span>{% endif %}
+            {% for o in c.objects %}<span class="fa-tag">{{ o }}</span>{% endfor %}
+            {% for z in c.zones %}<span class="fa-tag">@{{ z }}</span>{% endfor %}
+        </div>
+    </div>
+{% else %}
+    <p class="fa-note">Nothing captured in the last {{ recent_hours }} hours.</p>
+{% endfor %}
+</div>
+
+<script>
+(function () {
+    // Times come from the server as epoch seconds; show them in the viewer's zone.
+    document.querySelectorAll('.fa-ts').forEach(function (el) {
+        var d = new Date(parseFloat(el.dataset.ts) * 1000);
+        el.textContent = el.dataset.fmt === 'time'
+            ? d.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit', second: '2-digit'})
+            : d.toLocaleString();
+    });
+
+    // Group cards into one grid per local day.
+    var list = document.getElementById('fa-list');
+    var cards = Array.prototype.slice.call(list.querySelectorAll('.fa-card'));
+    var grid = null, lastDay = null;
+    cards.forEach(function (card) {
+        var day = new Date(parseFloat(card.dataset.ts) * 1000)
+            .toLocaleDateString([], {weekday: 'long', month: 'short', day: 'numeric'});
+        if (day !== lastDay) {
+            var h = document.createElement('h4');
+            h.className = 'fa-day';
+            h.textContent = day;
+            list.appendChild(h);
+            grid = document.createElement('div');
+            grid.className = 'fa-grid';
+            list.appendChild(grid);
+            lastDay = day;
+        }
+        grid.appendChild(card);
+    });
+
+    var player = document.getElementById('fa-player');
+    var video = document.getElementById('fa-video');
+    var caption = document.getElementById('fa-caption');
+    var current = null;
+
+    // Closing stops the stream (dropping src ends the range requests) and
+    // returns to the card that was playing.
+    function closePlayer() {
+        if (!current) { return; }
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        player.style.display = 'none';
+        current.classList.remove('playing');
+        current.scrollIntoView({behavior: 'smooth', block: 'center'});
+        current = null;
+    }
+
+    cards.forEach(function (card) {
+        if (!card.dataset.clip) { return; }
+        card.addEventListener('click', function () {
+            // One history entry per open player, so Back closes it.
+            if (!current) { history.pushState({faPlayer: true}, ''); }
+            if (current) { current.classList.remove('playing'); }
+            current = card;
+            card.classList.add('playing');
+            video.poster = card.dataset.poster || '';
+            video.src = card.dataset.clip;
+            caption.textContent = card.querySelector('.meta').innerText.replace(/\s+/g, ' ');
+            player.style.display = 'block';
+            video.play();
+            player.scrollIntoView({behavior: 'smooth', block: 'start'});
+        });
+    });
+
+    document.getElementById('fa-close').addEventListener('click', function () {
+        if (history.state && history.state.faPlayer) { history.back(); } else { closePlayer(); }
+    });
+    window.addEventListener('popstate', closePlayer);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && current) { document.getElementById('fa-close').click(); }
+    });
+
+    var filter = document.getElementById('fa-filter');
+    if (filter) {
+        filter.addEventListener('click', function (e) {
+            var cam = e.target.dataset.cam;
+            if (cam === undefined) { return; }
+            filter.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b === e.target); });
+            cards.forEach(function (c) { c.style.display = (!cam || c.dataset.cam === cam) ? '' : 'none'; });
+            list.querySelectorAll('.fa-grid').forEach(function (g) {
+                var any = Array.prototype.some.call(g.children, function (c) { return c.style.display !== 'none'; });
+                g.style.display = g.previousElementSibling.style.display = any ? '' : 'none';
+            });
+        });
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}
