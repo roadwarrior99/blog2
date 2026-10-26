@@ -7,6 +7,7 @@ ADD objects.py /tmp/objects.py
 ADD hash.py /tmp/hash.py
 ADD s3_management.py /tmp/s3_management.py
 ADD image_processing.py /tmp/image_processing.py
+ADD range_retro.py /tmp/range_retro.py
 ADD efs-utils.deb /tmp/efs-utils.deb
 
 COPY templates /tmp/templates
