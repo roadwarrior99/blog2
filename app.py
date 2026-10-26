@@ -59,6 +59,9 @@ app.config['SESSION_TYPE'] = 'redis'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB in bytes
+# Templates live on the NFS share and are updated in place by sync-web.sh;
+# without this Flask caches each one forever after its first render.
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SESSION_REDIS'] = redis.from_url(os.environ.get('REDIS_SERVER'))
 redis_client = redis.from_url(os.environ.get('REDIS_SERVER'))
 API_TOKEN_TTL = 3600  # 1 hour
